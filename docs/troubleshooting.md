@@ -634,7 +634,8 @@ docker compose exec frontend wget -O- http://backend:8000/api/v1/utils/health-ch
 2. **Check Network**:
    ```bash
    docker network ls
-   docker network inspect pma-full-stack-fastapi-template_default
+   # Inspect the default network (replace with your STACK_NAME from .env)
+   docker network inspect ${STACK_NAME}_default
    ```
 
 ---
@@ -721,8 +722,8 @@ time_total:  %{time_total}\n
 # Check container stats
 docker stats
 
-# Check specific service
-docker stats pma-full-stack-fastapi-template-backend-1
+# Check specific service (replace with your STACK_NAME from .env)
+docker stats ${STACK_NAME}-backend-1
 ```
 
 **Solutions**:
