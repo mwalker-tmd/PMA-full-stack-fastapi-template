@@ -12,6 +12,10 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-latest
+    env:
+      SECRET_KEY: "test-secret-key-for-ci"
+      FIRST_SUPERUSER_PASSWORD: "test-password-for-ci"
+      POSTGRES_PASSWORD: "test-db-password-for-ci"
     steps:
       - name: Checkout
         uses: actions/checkout@v6

@@ -72,9 +72,17 @@ jobs:
       env:
         VIRTUAL_ENV: backend/.venv
     - run: docker compose build
+      env:
+        SECRET_KEY: "test-secret-key-for-ci"
+        FIRST_SUPERUSER_PASSWORD: "test-password-for-ci"
+        POSTGRES_PASSWORD: "test-db-password-for-ci"
     - run: docker compose down -v --remove-orphans
     - name: Run Playwright tests
       run: docker compose run --rm playwright npx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      env:
+        SECRET_KEY: "test-secret-key-for-ci"
+        FIRST_SUPERUSER_PASSWORD: "test-password-for-ci"
+        POSTGRES_PASSWORD: "test-db-password-for-ci"
     - run: docker compose down -v --remove-orphans
     - name: Upload blob report to GitHub Actions Artifacts
       if: ${{ !cancelled() }}

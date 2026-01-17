@@ -10,6 +10,7 @@ Welcome to the Full Stack FastAPI project documentation!
 
 ### Development
 - **[Development Guide](../development.md)** - Local development workflows
+- **[CI/CD Guide](./ci-cd.md)** - GitHub Actions workflows and testing
 - **[Backend README](../backend/README.md)** - Backend-specific documentation
 - **[Frontend README](../frontend/README.md)** - Frontend-specific documentation
 
@@ -27,9 +28,11 @@ Welcome to the Full Stack FastAPI project documentation!
 docs/
 ├── README.md                    # This file
 ├── getting-started.md           # New user onboarding
+├── ci-cd.md                     # GitHub Actions and testing workflows
 ├── deployment-checklist.md      # Production deployment steps
 ├── troubleshooting.md           # Problem solving guide
-└── contributing.md              # Contribution guidelines
+├── contributing.md              # Contribution guidelines
+└── diagrams.md                  # System diagrams (Mermaid)
 
 Root level:
 ├── ARCHITECTURE.md              # System architecture overview
@@ -46,7 +49,8 @@ Start here:
 1. [Getting Started](./getting-started.md) - Set up your environment
 2. [Architecture](../ARCHITECTURE.md) - Understand the system
 3. [Development Guide](../development.md) - Learn the workflow
-4. [Contributing](./contributing.md) - Make your first contribution
+4. [CI/CD Guide](./ci-cd.md) - Understand automated testing
+5. [Contributing](./contributing.md) - Make your first contribution
 
 ### I'm Deploying to Production
 Follow this path:
