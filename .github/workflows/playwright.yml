@@ -42,16 +42,33 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     env:
-      PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
-      STACK_NAME: ${{ secrets.STACK_NAME }}
-      DOMAIN: ${{ secrets.DOMAIN }}
+      # Secrets (sensitive data)
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
       FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
-      POSTGRES_SERVER: ${{ secrets.POSTGRES_SERVER }}
-      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      # Variables (non-sensitive configuration)
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+      DOMAIN: ${{ vars.DOMAIN }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      FRONTEND_HOST: ${{ vars.FRONTEND_HOST }}
+      BACKEND_CORS_ORIGINS: ${{ vars.BACKEND_CORS_ORIGINS }}
+      FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
+      POSTGRES_SERVER: ${{ vars.POSTGRES_SERVER }}
+      POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      DOCKER_IMAGE_BACKEND: ${{ vars.DOCKER_IMAGE_BACKEND }}
+      DOCKER_IMAGE_FRONTEND: ${{ vars.DOCKER_IMAGE_FRONTEND }}
+      TAG: ${{ vars.TAG }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_USER: ${{ vars.SMTP_USER }}
+      SMTP_PASSWORD: ${{ vars.SMTP_PASSWORD }}
+      EMAILS_FROM_EMAIL: ${{ vars.EMAILS_FROM_EMAIL }}
+      SMTP_TLS: ${{ vars.SMTP_TLS }}
+      SMTP_SSL: ${{ vars.SMTP_SSL }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SENTRY_DSN: ${{ vars.SENTRY_DSN }}
     strategy:
       matrix:
         shardIndex: [1, 2, 3, 4]
@@ -82,32 +99,10 @@ jobs:
     - run: uv run bash scripts/generate-client.sh
       env:
         VIRTUAL_ENV: backend/.venv
-        PROJECT_NAME: "Test Project"
-        SECRET_KEY: "test-secret-key-for-ci"
-        FIRST_SUPERUSER: "admin@example.com"
-        FIRST_SUPERUSER_PASSWORD: "test-password-for-ci"
-        POSTGRES_SERVER: "localhost"
-        POSTGRES_USER: "postgres"
-        POSTGRES_PASSWORD: "test-db-password-for-ci"
-        POSTGRES_DB: "app"
     - run: docker compose build
-      env:
-        SECRET_KEY: "test-secret-key-for-ci"
-        FIRST_SUPERUSER_PASSWORD: "test-password-for-ci"
-        POSTGRES_SERVER: "db"
-        POSTGRES_USER: "postgres"
-        POSTGRES_PASSWORD: "test-db-password-for-ci"
-        POSTGRES_DB: "app"
     - run: docker compose down -v --remove-orphans
     - name: Run Playwright tests
       run: docker compose run --rm playwright npx playwright test --fail-on-flaky-tests --trace=retain-on-failure --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
-      env:
-        SECRET_KEY: "test-secret-key-for-ci"
-        FIRST_SUPERUSER_PASSWORD: "test-password-for-ci"
-        POSTGRES_SERVER: "db"
-        POSTGRES_USER: "postgres"
-        POSTGRES_PASSWORD: "test-db-password-for-ci"
-        POSTGRES_DB: "app"
     - run: docker compose down -v --remove-orphans
     - name: Upload blob report to GitHub Actions Artifacts
       if: ${{ !cancelled() }}

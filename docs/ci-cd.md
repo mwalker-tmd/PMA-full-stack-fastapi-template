@@ -22,18 +22,16 @@ See the complete guide: **[GitHub Secrets Setup](./github-secrets-setup.md)**
 
 **Quick setup**:
 1. Go to your repo's **Settings → Secrets and variables → Actions**
-2. Add these 10 secrets (see [setup guide](./github-secrets-setup.md) for values):
-   - `PROJECT_NAME`
-   - `STACK_NAME`
-   - `DOMAIN`
-   - `SECRET_KEY`
-   - `FIRST_SUPERUSER`
-   - `FIRST_SUPERUSER_PASSWORD`
-   - `POSTGRES_SERVER`
-   - `POSTGRES_USER`
-   - `POSTGRES_PASSWORD`
-   - `POSTGRES_DB`
+2. Add **3 Secrets** and **20 Variables** (see [setup guide](./github-secrets-setup.md) for values):
+   - **Secrets** (3): `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `POSTGRES_PASSWORD`
+   - **Variables** (20): `PROJECT_NAME`, `STACK_NAME`, `DOMAIN`, and 17 more
 3. Push code - workflows will run automatically
+
+**Why Secrets AND Variables?**
+- **Secrets**: Encrypted, for sensitive data (passwords, keys)
+- **Variables**: Visible, for non-sensitive config (URLs, names, ports)
+
+This follows the **principle of least privilege** and industry best practices.
 
 ---
 
