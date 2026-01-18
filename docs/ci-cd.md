@@ -119,7 +119,14 @@ The project includes three main CI workflows that run on every pull request:
 
 ### Test Environment Variables
 
-All CI workflows use **GitHub Secrets** for configuration. This follows industry best practices for CI/CD pipelines.
+All CI workflows use **GitHub Secrets and Variables** for configuration. This follows industry best practices for CI/CD pipelines.
+
+**How it works**:
+- **Local development**: Docker Compose automatically loads `.env` file (gitignored)
+- **CI (GitHub Actions)**: No `.env` file exists; Docker Compose uses environment variables from workflow `env:` section
+- **Production**: Same pattern - no `.env` file; environment variables come from platform secrets management (Kubernetes Secrets, AWS Secrets Manager, etc.)
+
+This is the professional 12-factor app approach: configuration comes from the environment, not from files in the codebase.
 
 **Required secrets** (configured in GitHub Settings):
 ```yaml
