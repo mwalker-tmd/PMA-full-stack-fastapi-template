@@ -122,7 +122,13 @@ git merge --continue
 
 ### Configure
 
-You can then update configs in the `.env` files to customize your configurations.
+First, copy the environment template file to create your `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+You can then update configs in the `.env` file to customize your configurations.
 
 Before deploying it, make sure you change at least the values for:
 
@@ -136,7 +142,7 @@ Read the [deployment.md](./deployment.md) docs for more details.
 
 ### Generate Secret Keys
 
-Some environment variables in the `.env` file have a default value of `changethis`.
+Some environment variables in the `.env.example` file (and your `.env` file after copying it) have a default value of `changethis`.
 
 You have to change them with a secret key, to generate secret keys you can run the following command:
 

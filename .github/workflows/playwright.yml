@@ -41,6 +41,35 @@ jobs:
     if: ${{ needs.changes.outputs.changed == 'true' }}
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    env:
+      # Secrets (sensitive data)
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      # Variables (non-sensitive configuration)
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+      DOMAIN: ${{ vars.DOMAIN }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      FRONTEND_HOST: ${{ vars.FRONTEND_HOST }}
+      BACKEND_CORS_ORIGINS: ${{ vars.BACKEND_CORS_ORIGINS }}
+      FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
+      POSTGRES_SERVER: ${{ vars.POSTGRES_SERVER }}
+      POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      DOCKER_IMAGE_BACKEND: ${{ vars.DOCKER_IMAGE_BACKEND }}
+      DOCKER_IMAGE_FRONTEND: ${{ vars.DOCKER_IMAGE_FRONTEND }}
+      TAG: ${{ vars.TAG }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_USER: ${{ vars.SMTP_USER }}
+      SMTP_PASSWORD: ${{ vars.SMTP_PASSWORD }}
+      SMTP_AUTH_ENABLED: ${{ vars.SMTP_AUTH_ENABLED }}
+      EMAILS_FROM_EMAIL: ${{ vars.EMAILS_FROM_EMAIL }}
+      SMTP_TLS: ${{ vars.SMTP_TLS }}
+      SMTP_SSL: ${{ vars.SMTP_SSL }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SENTRY_DSN: ${{ vars.SENTRY_DSN }}
     strategy:
       matrix:
         shardIndex: [1, 2, 3, 4]

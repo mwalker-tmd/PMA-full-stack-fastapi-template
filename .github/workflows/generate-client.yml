@@ -11,6 +11,17 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    env:
+      # Secrets (sensitive data)
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      # Variables (non-sensitive configuration)
+      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+      FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
+      POSTGRES_SERVER: ${{ vars.POSTGRES_SERVER }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
     steps:
     # For PRs from forks
     - uses: actions/checkout@v6
@@ -19,7 +30,7 @@ jobs:
       if: ( github.event_name != 'pull_request' || github.secret_source == 'Actions' )
       with:
         ref: ${{ github.head_ref }}
-        token: ${{ secrets.FULL_STACK_FASTAPI_TEMPLATE_REPO_TOKEN }}
+        # Use default GITHUB_TOKEN instead
     - uses: actions/setup-node@v6
       with:
         node-version: lts/*
@@ -39,9 +50,6 @@ jobs:
     - run: uv run bash scripts/generate-client.sh
       env:
         VIRTUAL_ENV: backend/.venv
-        SECRET_KEY: just-for-generating-client
-        POSTGRES_PASSWORD: just-for-generating-client
-        FIRST_SUPERUSER_PASSWORD: just-for-generating-client
     - name: Add changes to git
       run: |
         git config --local user.email "github-actions@github.com"

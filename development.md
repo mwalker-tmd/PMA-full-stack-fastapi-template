@@ -88,7 +88,7 @@ When you deploy it to production (or staging), it will deploy each service in a 
 
 In the guide about [deployment](deployment.md) you can read about Traefik, the configured proxy. That's the component in charge of transmitting traffic to each service based on the subdomain.
 
-If you want to test that it's all working locally, you can edit the local `.env` file, and change:
+If you want to test that it's all working locally, you can edit the local `.env` file (first copy from `.env.example` if you haven't already), and change:
 
 ```dotenv
 DOMAIN=localhost.tiangolo.com
@@ -127,6 +127,14 @@ docker compose watch
 ## The .env file
 
 The `.env` file is the one that contains all your configurations, generated keys and passwords, etc.
+
+**Important**: Before starting, make sure to copy `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Then edit the `.env` file with your specific configurations.
 
 Depending on your workflow, you could want to exclude it from Git, for example if your project is public. In that case, you would have to make sure to set up a way for your CI tools to obtain it while building or deploying your project.
 

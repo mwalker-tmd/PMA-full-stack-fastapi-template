@@ -103,7 +103,13 @@ Notice that everytime the backend changes (changing the OpenAPI schema), you sho
 
 ## Using a Remote API
 
-If you want to use a remote API, you can set the environment variable `VITE_API_URL` to the URL of the remote API. For example, you can set it in the `frontend/.env` file:
+If you want to use a remote API, you can set the environment variable `VITE_API_URL` to the URL of the remote API. First, copy the example file to create your `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `frontend/.env` and set your API URL:
 
 ```env
 VITE_API_URL=https://api.my-domain.example.com
