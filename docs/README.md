@@ -35,6 +35,8 @@ docs/
 ├── troubleshooting.md           # Problem solving guide
 ├── contributing.md              # Contribution guidelines
 └── diagrams.md                  # System diagrams (Mermaid)
+├── contributing.md              # Contribution guidelines
+└── diagrams.md                  # System diagrams (Mermaid)
 
 Root level:
 ├── ARCHITECTURE.md              # System architecture overview
@@ -51,6 +53,8 @@ Start here:
 1. [Getting Started](./getting-started.md) - Set up your environment
 2. [Architecture](../ARCHITECTURE.md) - Understand the system
 3. [Development Guide](../development.md) - Learn the workflow
+4. [CI/CD Guide](./ci-cd.md) - Understand automated testing
+5. [Contributing](./contributing.md) - Make your first contribution
 4. [CI/CD Guide](./ci-cd.md) - Understand automated testing
 5. [Contributing](./contributing.md) - Make your first contribution
 
