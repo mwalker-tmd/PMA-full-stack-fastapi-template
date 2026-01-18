@@ -64,6 +64,7 @@ jobs:
       SMTP_HOST: ${{ vars.SMTP_HOST }}
       SMTP_USER: ${{ vars.SMTP_USER }}
       SMTP_PASSWORD: ${{ vars.SMTP_PASSWORD }}
+      SMTP_AUTH_ENABLED: ${{ vars.SMTP_AUTH_ENABLED }}
       EMAILS_FROM_EMAIL: ${{ vars.EMAILS_FROM_EMAIL }}
       SMTP_TLS: ${{ vars.SMTP_TLS }}
       SMTP_SSL: ${{ vars.SMTP_SSL }}
