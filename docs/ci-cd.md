@@ -22,7 +22,10 @@ See the complete guide: **[GitHub Secrets Setup](./github-secrets-setup.md)**
 
 **Quick setup**:
 1. Go to your repo's **Settings → Secrets and variables → Actions**
-2. Add these 7 secrets (see [setup guide](./github-secrets-setup.md) for values):
+2. Add these 10 secrets (see [setup guide](./github-secrets-setup.md) for values):
+   - `PROJECT_NAME`
+   - `STACK_NAME`
+   - `DOMAIN`
    - `SECRET_KEY`
    - `FIRST_SUPERUSER`
    - `FIRST_SUPERUSER_PASSWORD`

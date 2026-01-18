@@ -13,6 +13,9 @@ jobs:
   test-backend:
     runs-on: ubuntu-latest
     env:
+      PROJECT_NAME: ${{ secrets.PROJECT_NAME }}
+      STACK_NAME: ${{ secrets.STACK_NAME }}
+      DOMAIN: ${{ secrets.DOMAIN }}
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
       FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
       FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}

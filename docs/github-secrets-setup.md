@@ -20,6 +20,9 @@ You need to configure the following secrets in your GitHub repository:
 
 | Secret Name | Description | Example Value for CI |
 |-------------|-------------|---------------------|
+| `PROJECT_NAME` | Project display name | `Test Project` |
+| `STACK_NAME` | Docker Compose stack name (no spaces) | `test-stack` |
+| `DOMAIN` | Domain name for routing | `localhost` |
 | `SECRET_KEY` | Application secret key for JWT tokens | `test-secret-key-for-ci-only` |
 | `FIRST_SUPERUSER` | Initial admin user email | `admin@example.com` |
 | `FIRST_SUPERUSER_PASSWORD` | Initial admin user password | `test-password-for-ci-only` |
@@ -51,7 +54,10 @@ For each secret in the table above:
 
 ### Step 3: Verify Secrets
 
-After adding all secrets, you should see 7 secrets listed:
+After adding all secrets, you should see 10 secrets listed:
+- PROJECT_NAME
+- STACK_NAME
+- DOMAIN
 - SECRET_KEY
 - FIRST_SUPERUSER
 - FIRST_SUPERUSER_PASSWORD
@@ -67,6 +73,9 @@ After adding all secrets, you should see 7 secrets listed:
 For continuous integration testing, you can use these test-safe values:
 
 ```bash
+PROJECT_NAME=Test Project
+STACK_NAME=test-stack
+DOMAIN=localhost
 SECRET_KEY=test-secret-key-for-ci-only
 FIRST_SUPERUSER=admin@example.com
 FIRST_SUPERUSER_PASSWORD=test-password-for-ci-only
