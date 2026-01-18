@@ -126,6 +126,11 @@ All CI workflows use **GitHub Secrets and Variables** for configuration. This fo
 - **CI (GitHub Actions)**: No `.env` file exists; Docker Compose uses environment variables from workflow `env:` section
 - **Production**: Same pattern - no `.env` file; environment variables come from platform secrets management (Kubernetes Secrets, AWS Secrets Manager, etc.)
 
+**Database connection per environment**:
+- **Docker services** (prestart, backend): Always use `POSTGRES_SERVER=db` (Docker network hostname)
+- **Host-based tests** (CI test-backend workflow): Use `POSTGRES_SERVER=localhost` (exposed port 5432)
+- **Production**: Use actual database endpoint from secrets manager
+
 This is the professional 12-factor app approach: configuration comes from the environment, not from files in the codebase.
 
 **Required secrets** (configured in GitHub Settings):
