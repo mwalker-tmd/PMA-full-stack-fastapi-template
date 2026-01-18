@@ -45,7 +45,7 @@ This separation follows the **principle of least privilege** and makes configura
 | `FRONTEND_HOST` | Frontend URL for backend to generate links | `http://localhost:5173` |
 | `BACKEND_CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `http://localhost,http://localhost:5173` |
 | `FIRST_SUPERUSER` | Initial admin user email | `admin@example.com` |
-| `POSTGRES_SERVER` | Database hostname | `db` |
+| `POSTGRES_SERVER` | Database hostname (localhost for CI host networking) | `localhost` |
 | `POSTGRES_PORT` | Database port | `5432` |
 | `POSTGRES_USER` | Database username | `postgres` |
 | `POSTGRES_DB` | Database name | `app` |
@@ -135,7 +135,7 @@ ENVIRONMENT=local
 FRONTEND_HOST=http://localhost:5173
 BACKEND_CORS_ORIGINS=http://localhost,http://localhost:5173
 FIRST_SUPERUSER=admin@example.com
-POSTGRES_SERVER=db
+POSTGRES_SERVER=localhost
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_DB=app
@@ -153,6 +153,13 @@ SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
 ```
 
 **Note**: These are safe dummy/test values for CI. SMTP settings won't send real emails (tests mock email sending), and Sentry is disabled in non-production environments.
+
+**Important - POSTGRES_SERVER value**:
+- **Local dev** (`.env` file): `POSTGRES_SERVER=db` (Docker service name)
+- **CI** (GitHub Variable): `POSTGRES_SERVER=localhost` (host networking with exposed port 5432)
+- **Production**: Set to actual database hostname (e.g., RDS endpoint, Cloud SQL instance)
+
+This demonstrates the 12-factor app principle: same application code, different configuration per environment.
 
 ---
 
