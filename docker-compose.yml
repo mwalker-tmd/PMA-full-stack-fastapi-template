@@ -40,6 +40,10 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-adminer-https.tls.certresolver=le
       - traefik.http.services.${STACK_NAME?Variable not set}-adminer.loadbalancer.server.port=8080
 
+  mailcatcher:
+    image: schickling/mailcatcher
+    restart: always
+
   prestart:
     image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
     build:

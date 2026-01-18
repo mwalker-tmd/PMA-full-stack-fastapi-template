@@ -52,13 +52,13 @@ This separation follows the **principle of least privilege** and makes configura
 | `DOCKER_IMAGE_BACKEND` | Backend Docker image name | `backend` |
 | `DOCKER_IMAGE_FRONTEND` | Frontend Docker image name | `frontend` |
 | `TAG` | Docker image tag | `latest` |
-| `SMTP_HOST` | SMTP server host (dummy for CI) | `localhost` |
-| `SMTP_USER` | SMTP username (dummy for CI) | `noreply@example.com` |
-| `SMTP_PASSWORD` | SMTP password (dummy for CI) | `not-used-in-ci` |
+| `SMTP_HOST` | SMTP server host (mailcatcher for CI) | `mailcatcher` |
+| `SMTP_USER` | SMTP username (not used by mailcatcher) | `noreply@example.com` |
+| `SMTP_PASSWORD` | SMTP password (not used by mailcatcher) | `not-used-in-ci` |
 | `EMAILS_FROM_EMAIL` | Email sender address | `info@example.com` |
-| `SMTP_TLS` | Use TLS for SMTP | `True` |
+| `SMTP_TLS` | Use TLS for SMTP (mailcatcher doesn't use TLS) | `False` |
 | `SMTP_SSL` | Use SSL for SMTP | `False` |
-| `SMTP_PORT` | SMTP port | `587` |
+| `SMTP_PORT` | SMTP port (mailcatcher uses 1025) | `1025` |
 | `SENTRY_DSN` | Sentry error tracking DSN (dummy for CI) | `https://examplePublicKey@o0.ingest.sentry.io/0` |
 
 ---
@@ -142,13 +142,13 @@ POSTGRES_DB=app
 DOCKER_IMAGE_BACKEND=backend
 DOCKER_IMAGE_FRONTEND=frontend
 TAG=latest
-SMTP_HOST=localhost
+SMTP_HOST=mailcatcher
 SMTP_USER=noreply@example.com
 SMTP_PASSWORD=not-used-in-ci
 EMAILS_FROM_EMAIL=info@example.com
-SMTP_TLS=True
+SMTP_TLS=False
 SMTP_SSL=False
-SMTP_PORT=587
+SMTP_PORT=1025
 SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
 ```
 
