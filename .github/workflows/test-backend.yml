@@ -15,7 +15,10 @@ jobs:
     env:
       SECRET_KEY: "test-secret-key-for-ci"
       FIRST_SUPERUSER_PASSWORD: "test-password-for-ci"
+      POSTGRES_SERVER: "db"
+      POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "test-db-password-for-ci"
+      POSTGRES_DB: "app"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
