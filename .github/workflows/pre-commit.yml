@@ -51,6 +51,8 @@ jobs:
       - name: Install Dependencies
         run: uv sync
         working-directory: backend
+      - name: Install biome (JavaScript/TypeScript linter)
+        run: npm install --global @biomejs/biome
       - name: Run prek - pre-commit
         id: precommit
         run: uvx prek run --from-ref origin/${GITHUB_BASE_REF} --to-ref HEAD --show-diff-on-failure
