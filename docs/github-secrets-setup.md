@@ -32,7 +32,7 @@ This separation follows the **principle of least privilege** and makes configura
 | `FIRST_SUPERUSER_PASSWORD` | Initial admin user password | `test-password-for-ci-only` |
 | `POSTGRES_PASSWORD` | Database password | `test-db-password-for-ci-only` |
 
-### Repository Variables (20 items)
+### Repository Variables (21 items)
 
 **Path**: Settings → Secrets and variables → Actions → **Variables** tab
 
@@ -53,8 +53,9 @@ This separation follows the **principle of least privilege** and makes configura
 | `DOCKER_IMAGE_FRONTEND` | Frontend Docker image name | `frontend` |
 | `TAG` | Docker image tag | `latest` |
 | `SMTP_HOST` | SMTP server host (mailcatcher for CI) | `mailcatcher` |
-| `SMTP_USER` | SMTP username (not used by mailcatcher) | `noreply@example.com` |
-| `SMTP_PASSWORD` | SMTP password (not used by mailcatcher) | `not-used-in-ci` |
+| `SMTP_USER` | SMTP username | `user@example.com` |
+| `SMTP_PASSWORD` | SMTP password | `password` |
+| `SMTP_AUTH_ENABLED` | Enable SMTP authentication (False for mailcatcher) | `False` |
 | `EMAILS_FROM_EMAIL` | Email sender address | `info@example.com` |
 | `SMTP_TLS` | Use TLS for SMTP (mailcatcher doesn't use TLS) | `False` |
 | `SMTP_SSL` | Use SSL for SMTP | `False` |
@@ -99,7 +100,7 @@ After adding all secrets, you should see 3 secrets listed:
 
 ### Step 2: Add Each Variable
 
-For each of the 20 variables listed above:
+For each of the 21 variables listed above:
 
 1. Click **"New repository variable"**
 2. Enter the **Name** (exactly as shown in table, case-sensitive)
@@ -108,7 +109,7 @@ For each of the 20 variables listed above:
 
 ### Step 3: Verify Variables
 
-After adding all variables, you should see 20 variables listed.
+After adding all variables, you should see 21 variables listed.
 
 **Tip**: Variables are visible and editable, so you can easily verify values after creation.
 
@@ -143,8 +144,9 @@ DOCKER_IMAGE_BACKEND=backend
 DOCKER_IMAGE_FRONTEND=frontend
 TAG=latest
 SMTP_HOST=mailcatcher
-SMTP_USER=noreply@example.com
-SMTP_PASSWORD=not-used-in-ci
+SMTP_USER=user@example.com
+SMTP_PASSWORD=password
+SMTP_AUTH_ENABLED=False
 EMAILS_FROM_EMAIL=info@example.com
 SMTP_TLS=False
 SMTP_SSL=False
@@ -282,7 +284,7 @@ SECRET_KEY=your-local-secret
 After configuring secrets and variables:
 
 1. ✅ Verify all 3 secrets are added
-2. ✅ Verify all 20 variables are added
+2. ✅ Verify all 21 variables are added
 3. ✅ Push your code to GitHub
 4. ✅ Workflows will automatically run
 5. ✅ Check the Actions tab to verify tests pass
@@ -301,7 +303,7 @@ If you're using this as a template for a new project:
 
 1. Create your repository from this template
 2. Follow the steps above to add 3 Secrets
-3. Follow the steps above to add 20 Variables
+3. Follow the steps above to add 21 Variables
 4. Update values for your project as needed
 5. Your CI/CD will work automatically
 
