@@ -24,7 +24,7 @@ graph TB
 
     Build --> Decision{Branch?}
 
-    Decision -->|main/master| Staging[Deploy to Staging]
+    Decision -->|main| Staging[Deploy to Staging]
     Decision -->|release tag| Prod[Deploy to Production]
     Decision -->|other| End[End]
 

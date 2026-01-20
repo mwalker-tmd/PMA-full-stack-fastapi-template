@@ -86,7 +86,7 @@ git remote add upstream git@github.com:fastapi/full-stack-fastapi-template.git
 - Push the code to your new repository:
 
 ```bash
-git push -u origin master
+git push -u origin main
 ```
 
 ### Update From the Original Template
@@ -107,7 +107,7 @@ upstream    git@github.com:fastapi/full-stack-fastapi-template.git (push)
 - Pull the latest changes without merging:
 
 ```bash
-git pull --no-commit upstream master
+git pull --no-commit upstream main
 ```
 
 This will download the latest changes from this template without committing them, that way you can check everything is right before committing.
