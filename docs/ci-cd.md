@@ -276,21 +276,80 @@ jobs:
 
 ## CD Workflows
 
-This template does NOT include CD workflows by default. For production deployment:
+This template **includes CD (Continuous Deployment) workflows** for automated deployments using self-hosted GitHub Actions runners.
 
-1. See [Deployment Guide](../deployment.md)
-2. See [Deployment Checklist](./deployment-checklist.md)
-3. Consider using:
-   - GitHub Actions with self-hosted runners
-   - Platform-as-a-Service (Heroku, Railway, Render)
-   - Container platforms (AWS ECS, Google Cloud Run)
+### Included Workflows
 
-### Why no CD in template?
+#### 1. Deploy to Staging (`deploy-staging.yml`)
 
-- Deployment is highly environment-specific
-- Requires server access and production secrets
-- Students/users should understand deployment before automating it
-- Template users will have different hosting requirements
+**Trigger**: Push to `master` branch
+
+**Runner**: Self-hosted runner with `staging` label
+
+**What it does**:
+1. Checks out the latest code
+2. Builds Docker images using `docker compose build`
+3. Deploys the stack using `docker compose up -d`
+
+#### 2. Deploy to Production (`deploy-production.yml`)
+
+**Trigger**: GitHub Release published
+
+**Runner**: Self-hosted runner with `production` label
+
+**What it does**:
+1. Checks out the release code
+2. Builds Docker images using `docker compose build`
+3. Deploys the stack using `docker compose up -d`
+
+### Guard Condition
+
+Both workflows include a guard condition:
+```yaml
+if: github.repository_owner != 'fastapi'
+```
+
+This prevents the workflows from running in the original template repository. When you fork or use this template, replace `'fastapi'` with your GitHub username/organization, or remove the condition entirely.
+
+### Required Secrets for CD
+
+The CD workflows require these GitHub Secrets to be configured:
+
+| Secret | Used By | Description |
+|--------|---------|-------------|
+| `DOMAIN_STAGING` | Staging | Domain for staging environment |
+| `DOMAIN_PRODUCTION` | Production | Domain for production environment |
+| `STACK_NAME_STAGING` | Staging | Docker Compose project name for staging |
+| `STACK_NAME_PRODUCTION` | Production | Docker Compose project name for production |
+| `SECRET_KEY` | Both | Application secret key for JWT tokens |
+| `FIRST_SUPERUSER` | Both | Initial admin user email |
+| `FIRST_SUPERUSER_PASSWORD` | Both | Initial admin user password |
+| `POSTGRES_PASSWORD` | Both | Database password |
+| `SMTP_HOST` | Both | SMTP server hostname |
+| `SMTP_USER` | Both | SMTP username |
+| `SMTP_PASSWORD` | Both | SMTP password |
+| `EMAILS_FROM_EMAIL` | Both | Email sender address |
+| `SENTRY_DSN` | Both | Sentry error tracking DSN (optional) |
+
+For detailed setup instructions, see:
+- [Deployment Guide](../deployment.md) - Server setup and self-hosted runner installation
+- [GitHub Secrets Setup](./github-secrets-setup.md) - Complete secrets configuration guide
+
+### How CD Differs from CI
+
+| Aspect | CI (Testing) | CD (Deployment) |
+|--------|-------------|-----------------|
+| **Runs on** | GitHub-hosted runners | Self-hosted runners on your servers |
+| **Purpose** | Test code quality | Deploy to staging/production |
+| **Secrets** | Test/dummy values | Real production values |
+| **Trigger** | PRs and pushes | Push to master (staging) or release (production) |
+
+### Setting Up CD
+
+1. **Prepare your server**: Follow the [Deployment Guide](../deployment.md) to set up Docker, Traefik, and the self-hosted runner
+2. **Configure secrets**: Add all required secrets in GitHub (Settings → Secrets and variables → Actions)
+3. **Push to master**: Triggers automatic staging deployment
+4. **Create a release**: Triggers automatic production deployment
 
 ---
 
@@ -300,11 +359,13 @@ All workflows are in `.github/workflows/`:
 
 ```
 .github/workflows/
-├── test-backend.yml          # Backend unit tests
-├── playwright.yml            # E2E tests
-├── test-docker-compose.yml   # Stack integration tests
-├── pre-commit.yml            # Code formatting/linting
-└── generate-client.yml       # API client generation (optional)
+├── test-backend.yml          # Backend unit tests (CI)
+├── playwright.yml            # E2E tests (CI)
+├── test-docker-compose.yml   # Stack integration tests (CI)
+├── pre-commit.yml            # Code formatting/linting (CI)
+├── generate-client.yml       # API client generation (optional)
+├── deploy-staging.yml        # Deploy to staging (CD)
+└── deploy-production.yml     # Deploy to production (CD)
 ```
 
 ---

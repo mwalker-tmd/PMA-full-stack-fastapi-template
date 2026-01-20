@@ -257,25 +257,34 @@ You can read more about it in the official guide: [Configuring the self-hosted r
 
 On your repository, configure secrets for the environment variables you need, the same ones described above, including `SECRET_KEY`, etc. Follow the [official GitHub guide for setting repository secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions#creating-secrets-for-a-repository).
 
-The current Github Actions workflows expect these secrets:
+The CD (Continuous Deployment) workflows expect these secrets:
 
-* `DOMAIN_PRODUCTION`
-* `DOMAIN_STAGING`
-* `STACK_NAME_PRODUCTION`
-* `STACK_NAME_STAGING`
-* `EMAILS_FROM_EMAIL`
-* `FIRST_SUPERUSER`
-* `FIRST_SUPERUSER_PASSWORD`
-* `POSTGRES_PASSWORD`
-* `SECRET_KEY`
-* `LATEST_CHANGES`
-* `SMOKESHOW_AUTH_KEY`
+**Environment-Specific Secrets:**
+* `DOMAIN_STAGING` - Domain for staging (e.g., `staging.example.com`)
+* `DOMAIN_PRODUCTION` - Domain for production (e.g., `example.com`)
+* `STACK_NAME_STAGING` - Docker Compose project name for staging (e.g., `staging-myapp`)
+* `STACK_NAME_PRODUCTION` - Docker Compose project name for production (e.g., `myapp`)
+
+**Shared Secrets (used by both staging and production):**
+* `SECRET_KEY` - Application secret key for JWT tokens
+* `FIRST_SUPERUSER` - Initial admin user email
+* `FIRST_SUPERUSER_PASSWORD` - Initial admin user password
+* `POSTGRES_PASSWORD` - Database password
+* `SMTP_HOST` - SMTP server hostname (e.g., `smtp.sendgrid.net`)
+* `SMTP_USER` - SMTP username
+* `SMTP_PASSWORD` - SMTP password
+* `EMAILS_FROM_EMAIL` - Email sender address
+* `SENTRY_DSN` - Sentry error tracking DSN (can be empty if not using Sentry)
+
+**Note**: The following secrets are used by other workflows, not CD:
+* `LATEST_CHANGES` - Used by release notes workflow (optional)
+* `SMOKESHOW_AUTH_KEY` - Used by code coverage workflow (optional)
 
 ## GitHub Action Deployment Workflows
 
 There are GitHub Action workflows in the `.github/workflows` directory already configured for deploying to the environments (GitHub Actions runners with the labels):
 
-* `staging`: after pushing (or merging) to the branch `main`.
+* `staging`: after pushing (or merging) to the branch `master`.
 * `production`: after publishing a release.
 
 If you need to add extra environments you could use those as a starting point.

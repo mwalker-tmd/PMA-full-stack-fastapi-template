@@ -261,6 +261,94 @@ SECRET_KEY=your-local-secret
 
 ---
 
+## CD Deployment Secrets (Remote Server Deployment)
+
+This section covers secrets required for the **CD (Continuous Deployment) workflows** that deploy to staging and production servers using self-hosted GitHub Actions runners.
+
+### CD vs CI Secrets
+
+| Aspect | CI Secrets | CD Secrets |
+|--------|-----------|------------|
+| **Purpose** | Run tests in ephemeral environments | Deploy to real servers |
+| **Values** | Test/dummy values | Real production values |
+| **SMTP** | Mailcatcher (no real emails) | Real email provider |
+| **Domain** | `localhost` | Your actual domain |
+| **Security** | Low risk (test only) | High risk (production data) |
+
+### Required CD Secrets
+
+Configure these secrets in **Settings → Secrets and variables → Actions → Secrets**:
+
+#### Environment-Specific Secrets
+
+| Secret | Description | Staging Example | Production Example |
+|--------|-------------|-----------------|-------------------|
+| `DOMAIN_STAGING` | Staging domain | `staging.myapp.com` | — |
+| `DOMAIN_PRODUCTION` | Production domain | — | `myapp.com` |
+| `STACK_NAME_STAGING` | Staging stack name | `staging-myapp` | — |
+| `STACK_NAME_PRODUCTION` | Production stack name | — | `myapp` |
+
+#### Shared Secrets (Both Environments)
+
+| Secret | Description | Example Value |
+|--------|-------------|---------------|
+| `SECRET_KEY` | JWT signing key (generate securely!) | `your-32-char-random-string` |
+| `FIRST_SUPERUSER` | Initial admin email | `admin@myapp.com` |
+| `FIRST_SUPERUSER_PASSWORD` | Initial admin password | `your-secure-password` |
+| `POSTGRES_PASSWORD` | Database password | `your-db-password` |
+| `SMTP_HOST` | SMTP server | `smtp.sendgrid.net` |
+| `SMTP_USER` | SMTP username | `apikey` |
+| `SMTP_PASSWORD` | SMTP password/API key | `SG.xxxxx` |
+| `EMAILS_FROM_EMAIL` | Sender email address | `noreply@myapp.com` |
+| `SENTRY_DSN` | Sentry error tracking (optional) | `https://xxx@sentry.io/xxx` |
+
+### How CD Workflows Use These Secrets
+
+The CD workflows (`deploy-staging.yml` and `deploy-production.yml`) use these secrets as environment variables when running `docker compose` on your self-hosted runners:
+
+```yaml
+# Example from deploy-staging.yml
+env:
+  ENVIRONMENT: staging
+  DOMAIN: ${{ secrets.DOMAIN_STAGING }}
+  STACK_NAME: ${{ secrets.STACK_NAME_STAGING }}
+  SECRET_KEY: ${{ secrets.SECRET_KEY }}
+  FIRST_SUPERUSER: ${{ secrets.FIRST_SUPERUSER }}
+  # ... etc
+```
+
+### Generating Secure Values for CD
+
+```bash
+# Generate SECRET_KEY
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Generate POSTGRES_PASSWORD
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Generate FIRST_SUPERUSER_PASSWORD
+python -c "import secrets; print(secrets.token_urlsafe(24))"
+```
+
+### CD Setup Checklist
+
+1. ✅ Set up self-hosted runner on your server (see [Deployment Guide](../deployment.md))
+2. ✅ Configure Traefik proxy for HTTPS
+3. ✅ Add all environment-specific secrets (staging and production domains/stack names)
+4. ✅ Add all shared secrets with real production values
+5. ✅ Push to `master` to trigger staging deployment
+6. ✅ Create a GitHub Release to trigger production deployment
+
+### Important Notes
+
+- **CD secrets should be real production values**, not test values
+- **Never reuse CI test values** for CD deployments
+- **SMTP secrets** should point to a real email provider (SendGrid, Mailgun, etc.)
+- **SENTRY_DSN** can be left empty if you're not using Sentry
+- Consider using **different database passwords** for staging vs production by using environment-specific secrets
+
+---
+
 ## Security Best Practices
 
 ### ✅ DO:
