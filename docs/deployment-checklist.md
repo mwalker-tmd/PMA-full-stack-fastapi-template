@@ -256,7 +256,7 @@ Choose one:
   ```
 - [ ] Correct branch/tag checked out
   ```bash
-  git checkout v1.0.0  # or main/master
+  git checkout v1.0.0  # or main
   ```
 
 ### Build & Start

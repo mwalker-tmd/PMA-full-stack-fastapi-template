@@ -66,7 +66,7 @@ The project includes three main CI workflows that run on every pull request:
 - Generates coverage report (requires 90%+ coverage)
 
 **When it runs**:
-- On push to `master` branch
+- On push to `main` branch
 - On pull request open or sync
 
 **Duration**: ~2-3 minutes
@@ -80,7 +80,7 @@ The project includes three main CI workflows that run on every pull request:
 - Runs tests in parallel across 4 shards for speed
 
 **When it runs**:
-- On push to `master` branch
+- On push to `main` branch
 - On pull request open or sync
 - Only if relevant files changed (backend, frontend, docker configs)
 
@@ -95,7 +95,7 @@ The project includes three main CI workflows that run on every pull request:
 - Health checks all services
 
 **When it runs**:
-- On push to `master` branch
+- On push to `main` branch
 - On pull request open or sync
 
 **Duration**: ~3-4 minutes
@@ -368,7 +368,7 @@ To temporarily disable a workflow without deleting it:
    on:
      push:
        branches:
-         - master
+         - main
 
    jobs:
      test-backend:
