@@ -31,7 +31,7 @@ jobs:
       with:
         ref: ${{ github.head_ref }}
         # Use default GITHUB_TOKEN instead
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: lts/*
     - uses: actions/setup-python@v6
