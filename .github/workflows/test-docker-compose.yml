@@ -43,7 +43,7 @@ jobs:
       SENTRY_DSN: ${{ vars.SENTRY_DSN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - run: docker compose build
       - run: docker compose down -v --remove-orphans
       - run: docker compose up -d --wait backend frontend adminer
