@@ -19,8 +19,19 @@ for name in $OVERRIDABLE; do
         echo "$name: using the .env.example default"
         continue
     fi
-    if [[ "$value" == *"'"* || "$value" == *$'\n'* ]]; then
-        echo "::error::$name must not contain single quotes or newlines"
+    # Secrets pasted into the GitHub UI or piped through echo often end in a
+    # line break, which is never part of the intended value
+    trimmed="${value%"${value##*[!$'\r\n']}"}"
+    if [ "$trimmed" != "$value" ]; then
+        echo "$name: removed trailing line break(s) from the repository value"
+        value="$trimmed"
+    fi
+    if [[ "$value" == *"'"* ]]; then
+        echo "::error::$name contains a single quote, which .env quoting cannot hold. Update the secret or variable."
+        exit 1
+    fi
+    if [[ "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+        echo "::error::$name contains a line break in the middle of the value. Update the secret or variable."
         exit 1
     fi
     # Replace the line in place, so variables that reference it, such as
