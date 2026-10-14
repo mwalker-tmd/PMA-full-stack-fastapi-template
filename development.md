@@ -4,6 +4,13 @@
 
 For local development, run PostgreSQL and Mailpit with Docker Compose, and run the FastAPI and Vite development servers locally.
 
+First, create your local environment files from the tracked examples (see [The `.env` Files](#the-env-files)):
+
+```bash
+cp .env.example .env
+cp frontend/.env.example frontend/.env
+```
+
 Start the supporting services:
 
 ```bash
@@ -40,7 +47,7 @@ Automatic interactive API documentation with Swagger UI: <http://localhost:8000/
 
 Mailpit: <http://localhost:8025>
 
-The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env`.
+The frontend development server uses the backend at `http://localhost:8000`, as configured in `frontend/.env` (copied from `frontend/.env.example`).
 
 ### Frontend Served by FastAPI
 
@@ -97,9 +104,35 @@ After changing variables, make sure you restart the stack:
 docker compose watch
 ```
 
-## The `.env` File
+## The `.env` Files
 
-The tracked `.env` file contains local development defaults, passwords, and other configuration. Its hostnames use `localhost` for processes running on your machine. Docker Compose overrides hostnames such as the database and SMTP server with their Compose service names.
+`.env` files are not tracked in git, because they hold passwords and keys. The repository tracks templates instead:
+
+* `.env.example`: backend and Docker Compose settings. Copy it to `.env`.
+* `frontend/.env.example`: Vite development server and Playwright test settings. Copy it to `frontend/.env`.
+
+Both `.env` files are listed in `.gitignore`, so your local values never show up as changes to commit.
+
+The example values are local development defaults. Their hostnames use `localhost` for processes running on your machine. Docker Compose overrides hostnames such as the database and SMTP server with their Compose service names.
+
+These variables are required and have no defaults. The backend or Docker Compose will not start without them:
+
+* `PROJECT_NAME`
+* `SECRET_KEY`
+* `FIRST_SUPERUSER`
+* `FIRST_SUPERUSER_PASSWORD`
+* `POSTGRES_PASSWORD`
+* `DATABASE_URL` (only when running the backend outside Docker Compose, which builds its own)
+
+`SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD` and the database password ship as `changethis`. With `FASTAPI_ENV=development`, as in the example, that only produces a warning. Without it, the backend refuses to start. Generate real values with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Every other variable is optional and listed, with its default, in `.env.example`.
+
+If you add a new setting, add it to the matching `.env.example` too, so others know it exists.
 
 Do not store deployment secrets in `.env`. Configure them as described in the [FastAPI Cloud deployment guide](./deployment.md) or the [Docker Compose deployment guide](./deployment-docker-compose.md).
 

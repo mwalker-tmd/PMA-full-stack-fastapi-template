@@ -6,3 +6,7 @@ backend/app/frontend/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Environment files hold local secrets. Copy the tracked .env.example
+# templates to .env instead (root and frontend/).
+.env
