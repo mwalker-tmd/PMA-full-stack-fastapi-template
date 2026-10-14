@@ -33,6 +33,23 @@ if $run_playwright; then
 fi
 docker info >/dev/null 2>&1 || { echo "❌ Docker is not running" >&2; exit 1; }
 
+# The backend tests connect to localhost:5432, so a native PostgreSQL (e.g.
+# Postgres.app or Homebrew) or a running dev stack would silently take the
+# place of the test containers
+busy_ports=""
+for port in 5432 8000 1025 8025; do
+    if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+        busy_ports="$busy_ports $port"
+    fi
+done
+if [ -n "$busy_ports" ]; then
+    echo "❌ Port(s)$busy_ports already in use. Stop whatever is listening first:" >&2
+    echo "   - your dev stack: docker compose down" >&2
+    echo "   - a local PostgreSQL on 5432 (Postgres.app, Homebrew, etc.)" >&2
+    echo "   Find it with: lsof -nP -iTCP:<port> -sTCP:LISTEN" >&2
+    exit 1
+fi
+
 repo_root="$(git rev-parse --show-toplevel)"
 commit="$(git -C "$repo_root" rev-parse --short HEAD)"
 if [ -n "$(git -C "$repo_root" status --porcelain)" ]; then
