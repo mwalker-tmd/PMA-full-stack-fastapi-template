@@ -75,6 +75,8 @@ Self-hosted deployment with Docker Compose: [deployment-docker-compose.md](./dep
 
 ## Development
 
+New to the project? Start with [docs/getting-started.md](./docs/getting-started.md), which goes from a clean machine to a running app.
+
 General development docs: [development.md](./development.md).
 
 This includes the local FastAPI and Vite workflow, Docker Compose services, `.env` configuration, and more.
