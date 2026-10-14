@@ -226,5 +226,7 @@ The admin account is created only once, when the database is first prepared. To 
 
 * [development.md](../development.md): local dev servers, Docker Compose files, `.env` details, pre-commit hooks
 * [backend/README.md](../backend/README.md) and [frontend/README.md](../frontend/README.md): working on each half of the app
+* [ci-cd.md](./ci-cd.md): what the GitHub Actions checks do (no setup needed)
 * [deployment.md](../deployment.md): deploy to FastAPI Cloud, the default
 * [deployment-docker-compose.md](../deployment-docker-compose.md): deploy to your own server
+* [github-secrets-setup.md](./github-secrets-setup.md): the secrets and variables a deployment needs
