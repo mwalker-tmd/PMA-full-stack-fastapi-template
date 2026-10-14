@@ -1,517 +1,242 @@
-# System Architecture
+# Architecture
 
-This document provides a comprehensive overview of the full-stack application architecture.
+How the pieces of this application fit together: which services run, how a request travels through them, and where each part lives in the repository. More diagrams (database schema, authentication, password reset, CI/CD, deployments) are in [docs/diagrams.md](./docs/diagrams.md).
 
-## Table of Contents
-- [System Overview](#system-overview)
-- [Component Details](#component-details)
-- [Data Flow](#data-flow)
-- [Development vs Production](#development-vs-production)
-- [Network Architecture](#network-architecture)
+## The Big Picture
 
-## System Overview
-
-### Architecture Diagram
+It's a single web application: a **FastAPI** backend that serves both the JSON API and the **React** frontend, backed by **PostgreSQL**. The frontend is compiled to static files ahead of time, so there's no separate frontend server in production. Everything runs as Docker Compose services.
 
 ```mermaid
-graph TB
-    subgraph "User Layer"
-        Browser[Web Browser]
+flowchart LR
+    browser["Browser"]
+
+    subgraph stack["Docker Compose stack (local development)"]
+        proxy["proxy<br/>Traefik<br/>:80, dashboard :8090"]
+        backend["backend<br/>FastAPI + built React app<br/>:8000"]
+        adminer["adminer<br/>database UI<br/>:8080"]
+        db[("db<br/>PostgreSQL<br/>:5432")]
+        mailpit["mailpit<br/>catches email<br/>UI :8025, SMTP :1025"]
+        playwright["playwright<br/>end-to-end test runner<br/>(on demand)"]
     end
 
-    subgraph "Docker Compose Stack"
-        subgraph "Entry Point"
-            Traefik[Traefik Proxy<br/>Load Balancer & Router]
-        end
-
-        subgraph "Frontend Layer"
-            Frontend[React + Vite<br/>TypeScript, TanStack, Tailwind]
-        end
-
-        subgraph "Backend Layer"
-            Backend[FastAPI<br/>Python REST API<br/>JWT Auth]
-        end
-
-        subgraph "Data Layer"
-            DB[(PostgreSQL<br/>Relational Database)]
-        end
-
-        subgraph "Development Tools"
-            Adminer[Adminer<br/>Database Admin UI]
-            Mailcatcher[Mailcatcher<br/>Email Testing]
-        end
-    end
-
-    Browser -->|HTTP Requests| Traefik
-    Browser -->|Direct Access<br/>Dev Only| Frontend
-    Browser -->|Direct Access<br/>Dev Only| Backend
-
-    Traefik -->|Routes /api/*| Backend
-    Traefik -->|Routes /*| Frontend
-
-    Frontend -->|REST API Calls| Backend
-    Backend -->|SQL Queries<br/>SQLModel/Alembic| DB
-    Backend -->|Send Emails<br/>SMTP| Mailcatcher
-
-    Adminer -.->|Query & Manage| DB
-
-    style Browser fill:#e1f5ff
-    style Traefik fill:#ff9800
-    style Frontend fill:#4caf50
-    style Backend fill:#2196f3
-    style DB fill:#9c27b0
-    style Adminer fill:#ffc107
-    style Mailcatcher fill:#00bcd4
+    browser -->|"http://localhost"| proxy
+    browser -->|"http://localhost:8000"| backend
+    browser -->|":8080"| adminer
+    browser -->|":8025"| mailpit
+    proxy -->|"Host: localhost"| backend
+    proxy -->|"Host: adminer.localhost"| adminer
+    backend -->|"SQL"| db
+    adminer -->|"SQL"| db
+    backend -->|"SMTP"| mailpit
+    playwright -.->|"drives a browser against"| backend
+    playwright -.->|"reads emails from"| mailpit
 ```
 
-## Component Details
+| Service | Image or build | Role | Local port(s) |
+|---|---|---|---|
+| `proxy` | `traefik:v3.7` | Reverse proxy. Routes requests to services by hostname, using Docker labels. In deployments it also handles HTTPS. | 80, 8090 (dashboard) |
+| `db` | `postgres:18` | The database. Data lives in the `app-db-data` volume. | 5432 |
+| `adminer` | `adminer` | Web UI for browsing and editing the database | 8080 |
+| `backend` | `backend/Dockerfile` | FastAPI app: the API, the API docs, and the built frontend | 8000 |
+| `mailpit` | `axllent/mailpit` | Catches outgoing email so you can read it. Local only. | 8025 (UI), 1025 (SMTP) |
+| `playwright` | `frontend/Dockerfile.playwright` | Runs the end-to-end tests in a real browser. Exits immediately unless given a test command. Local only. | 9323 (report) |
 
-### 1. Traefik Proxy
+The services are defined in three Compose files:
 
-**Purpose**: Reverse proxy and load balancer
+* **`compose.yml`:** the base definition shared by all environments. Services, the database volume, health checks, and Traefik routing labels.
+* **`compose.override.yml`:** local development additions, which Compose loads automatically. Published ports, the backend in `fastapi dev` mode with `docker compose watch` support, `FASTAPI_ENV=development`, SMTP pointed at Mailpit, the `mailpit` and `playwright` services, and the Traefik dashboard.
+* **`compose.deploy.yml`:** used *instead of* the override on a server (`docker compose -f compose.yml -f compose.deploy.yml ...`). HTTPS on port 443 with automatic Let's Encrypt certificates, an HTTP to HTTPS redirect, and `restart: always`. No Mailpit, no test runner, no published database port.
 
-**Ports**:
-- 80: HTTP traffic
-- 8090: Dashboard (development only)
+## How a Request Is Handled
 
-**Responsibilities**:
-- Routes traffic to appropriate services based on domain/path
-- In production: Handles HTTPS/TLS certificates via Let's Encrypt
-- Load balancing across multiple instances
-
-**Routing Rules**:
-- `api.*` → Backend API
-- `dashboard.*` → Frontend
-- `adminer.*` → Database admin (production)
-
-**Access**: http://localhost:8090 (development)
-
----
-
-### 2. Frontend - React/Vite
-
-**Purpose**: User interface and client-side application
-
-**Port**: 5173 (development)
-
-**Tech Stack**:
-- **React 18**: UI library with hooks
-- **TypeScript**: Type safety
-- **Vite**: Fast build tool with hot module replacement
-- **TanStack Query**: Server state management
-- **TanStack Router**: Type-safe routing
-- **Tailwind CSS**: Utility-first styling
-- **shadcn/ui**: Pre-built accessible components
-
-**Features**:
-- JWT-based authentication
-- Dark mode support
-- Auto-generated type-safe API client (from OpenAPI spec)
-- Responsive design
-- Hot reload in development
-
-**Access**: http://localhost:5173
-
----
-
-### 3. Backend - FastAPI
-
-**Purpose**: REST API server and business logic
-
-**Port**: 8000
-
-**Tech Stack**:
-- **FastAPI**: Modern Python web framework
-- **SQLModel**: ORM combining SQLAlchemy + Pydantic
-- **Alembic**: Database migration tool
-- **Pydantic**: Data validation and settings management
-- **Python-Jose**: JWT token handling
-- **Passlib**: Password hashing
-
-**Features**:
-- Automatic OpenAPI/Swagger documentation
-- Type hints and automatic validation
-- Dependency injection system
-- Background tasks
-- WebSocket support (available but not configured)
-- Hot reload in development
-
-**Access**:
-- API: http://localhost:8000
-- Interactive Docs: http://localhost:8000/docs
-- Alternative Docs: http://localhost:8000/redoc
-
-**Key Endpoints**:
-- `/api/v1/login/` - Authentication
-- `/api/v1/users/` - User management
-- `/api/v1/items/` - Example CRUD operations
-- `/api/v1/utils/` - Health checks
-
----
-
-### 4. PostgreSQL
-
-**Purpose**: Primary relational database
-
-**Port**: 5432
-
-**Configuration**:
-- Version: 17
-- Volume: `app-db-data` (persistent storage)
-- Health checks enabled
-- Credentials: Configured via `.env` file
-
-**Schema Management**:
-- Migrations via Alembic
-- Models defined in `backend/app/models.py`
-- Automatic schema generation from SQLModel
-
----
-
-### 5. Adminer
-
-**Purpose**: Database management web interface
-
-**Port**: 8080
-
-**What it does**:
-- Visual query builder
-- Table browsing and editing
-- Schema visualization
-- SQL query execution
-- Import/export data
-
-**Access**: http://localhost:8080
-
-**Login Details**:
-- System: PostgreSQL
-- Server: `db` (Docker internal hostname)
-- Username: postgres
-- Password: From `POSTGRES_PASSWORD` in `.env`
-- Database: app
-
----
-
-### 6. Mailcatcher
-
-**Purpose**: Email testing tool for development
-
-**Ports**:
-- 1025: SMTP server (for sending)
-- 1080: Web UI (for viewing)
-
-**What it does**:
-- Catches all outbound emails during development
-- Prevents accidental email sending
-- Provides web interface to view caught emails
-
-**Use Cases**:
-- Testing password reset emails
-- User registration confirmations
-- Notification emails
-- Email template development
-
-**Access**: http://localhost:1080
-
-**Note**: In production, replace with real SMTP service (Mailgun, SendGrid, AWS SES, etc.)
-
----
-
-## Data Flow
-
-### Example: API Request Flow
+The backend is the only service a user's browser needs. One FastAPI process answers three kinds of requests:
 
 ```mermaid
-sequenceDiagram
-    participant U as User Browser
-    participant F as Frontend
-    participant B as Backend
-    participant D as PostgreSQL
+flowchart TD
+    req["Request to the backend<br/>(directly on :8000, or through Traefik)"]
+    api{"Path matches an<br/>API route?<br/>/api/v1/..."}
+    docs{"API docs?<br/>/docs, /redoc,<br/>/api/v1/openapi.json"}
+    file{"A file in the<br/>built frontend?<br/>e.g. /assets/index-abc.js"}
+    html{"Sent by a browser?<br/>Accept: text/html"}
 
-    U->>F: User Action (e.g., fetch data)
-    F->>B: HTTP Request with JWT token
-    B->>B: Validate JWT token
-    B->>D: Execute SQL query
-    D->>B: Return query results
-    B->>B: Transform data (Pydantic)
-    B->>F: JSON response
-    F->>F: Update UI state (TanStack Query)
-    F->>U: Display updated UI
+    req --> api
+    api -->|yes| apiresp["Route handler runs<br/>JSON response"]
+    api -->|no| docs
+    docs -->|yes| docsresp["Swagger UI / ReDoc /<br/>OpenAPI schema"]
+    docs -->|no| file
+    file -->|yes| fileresp["Static file from<br/>backend/app/frontend/"]
+    file -->|no| html
+    html -->|yes| spa["index.html<br/>React app starts, and its router<br/>shows the page for the URL"]
+    html -->|no| notfound["404 JSON"]
 ```
 
-### Authentication Flow
+* **API routes** are defined in `backend/app/api/routes/`, mounted under `/api/v1`: `login`, `users`, `items`, `utils`, and, only when `FASTAPI_ENV=development`, `private`, which is used by the tests.
+* **The frontend** is served by `app.frontend("/", directory=FRONTEND_DIR)` in `backend/app/main.py`. Because unmatched browser requests get `index.html`, deep links such as `/items` or `/settings` work on reload: the browser receives the app, and TanStack Router renders the right page.
+* **The frontend calls the API on the same origin** (`/api/v1/...`). Only the Vite development server needs `VITE_API_URL` to point it at the backend on another port.
+
+### In local development with the Vite server
+
+For fast frontend work, you can run the Vite dev server on your machine (`bun run dev`, port 5173) instead of using the built frontend. The browser then loads the app from Vite and calls the API on `:8000` directly. That's a cross-origin request, which the backend allows with CORS. Allowed origins are `FRONTEND_HOST` (the base of links in emails: `http://localhost:5173` when the backend runs on your machine, `http://localhost:8000` for the Docker Compose backend, `https://<DOMAIN>` in a deployment) plus, only when `FASTAPI_ENV=development`, the Vite dev server at `http://localhost:5173`. So the dev server works with either backend, and deployments allow only their own domain.
 
 ```mermaid
-sequenceDiagram
-    participant U as User
-    participant F as Frontend
-    participant B as Backend
-    participant D as Database
-
-    U->>F: Submit login form
-    F->>B: POST /api/v1/login/access-token
-    B->>D: Query user by email
-    D->>B: Return user record
-    B->>B: Verify password hash
-    B->>B: Generate JWT token
-    B->>F: Return access token
-    F->>F: Store token in memory
-    F->>U: Redirect to dashboard
-
-    Note over F,B: Subsequent requests include token
-
-    F->>B: API request + Authorization header
-    B->>B: Validate token
-    B->>D: Execute query
-    D->>B: Return data
-    B->>F: JSON response
+flowchart LR
+    browser["Browser"] -->|"app, hot reload"| vite["Vite dev server<br/>:5173"]
+    browser -->|"API calls (CORS)<br/>VITE_API_URL"| backend["backend<br/>:8000"]
 ```
 
----
+## Backend
 
-## Development vs Production
+FastAPI on Python 3.14, managed with uv.
 
-### Development Environment (Current)
+| Path | What's there |
+|---|---|
+| `backend/app/main.py` | Creates the app: CORS, the API router, the frontend, and Sentry (when `SENTRY_DSN` is set and not in development) |
+| `backend/app/api/main.py` | Collects the routers under `/api/v1` |
+| `backend/app/api/routes/` | One module per area: `login.py`, `users.py`, `items.py`, `utils.py`, `private.py` |
+| `backend/app/api/deps.py` | Shared dependencies: database session, current user from the token, superuser check |
+| `backend/app/core/config.py` | All settings, loaded from environment variables and the root `.env` (pydantic-settings) |
+| `backend/app/core/db.py` | Database engine, created from `DATABASE_URL`, and first-superuser creation |
+| `backend/app/core/security.py` | Password hashing and JWT creation |
+| `backend/app/models.py` | SQLModel models: database tables and API schemas |
+| `backend/app/crud.py` | Database helpers: create users, authenticate, create items |
+| `backend/app/utils.py` | Email rendering and sending, password-reset tokens |
+| `backend/app/alembic/` | Database migrations |
+| `backend/app/email-templates/` | Generated email HTML (see [Email](#email)) |
+| `backend/app/initial_data.py` | Creates the first superuser |
+| `backend/scripts/prestart.sh` | Runs migrations, then `initial_data.py`. Run before starting the app, and by the deploy workflows. |
+| `backend/tests/` | pytest tests, against a real database |
 
-**Characteristics**:
-- All services on `localhost` with different ports
-- Direct port access for debugging
-- Hot reload enabled (code changes auto-refresh)
-- Mailcatcher instead of real SMTP
-- Traefik dashboard exposed
-- Debug logging enabled
-- CORS configured for `localhost`
+**Database access:** SQLModel (SQLAlchemy plus Pydantic) with the psycopg 3 driver. The connection is configured by a single `DATABASE_URL`. Docker Compose builds it as `postgresql://postgres:<POSTGRES_PASSWORD>@db:5432/app`; for local runs it comes from `.env`. A `postgres://` or `postgresql://` URL is switched to the psycopg driver automatically. The schema is changed only through Alembic migrations (`alembic upgrade head` in `prestart.sh`).
 
-**URLs**:
-- Frontend: http://localhost:5173
-- Backend: http://localhost:8000
-- Adminer: http://localhost:8080
-- Traefik: http://localhost:8090
-- Mailcatcher: http://localhost:1080
+### Authentication
 
-**Docker Compose Files**:
-- `docker-compose.yml` - Base configuration
-- `docker-compose.override.yml` - Development overrides (hot reload, volume mounts)
+* **Login:** OAuth2 password flow. The frontend posts the email and password to `/api/v1/login/access-token` and receives a JWT access token.
+* **Tokens:** HS256-signed with `SECRET_KEY`, valid for 8 days (`ACCESS_TOKEN_EXPIRE_MINUTES`), containing the user's ID. The frontend keeps the token in `localStorage` and sends it as `Authorization: Bearer ...`. The backend is stateless: no sessions are stored, so changing `SECRET_KEY` logs everyone out.
+* **Passwords** are hashed with [pwdlib](https://github.com/frankie567/pwdlib), with **Argon2** as the primary scheme. bcrypt hashes, used by earlier versions of the template, are still accepted, and are re-hashed to Argon2 the next time that user logs in. A login for an unknown email still runs a password check against a dummy hash, so response times don't reveal which emails exist.
+* **Permissions:** users are active or inactive, and normal users or superusers. Superusers can manage all users; normal users manage their own account and items.
+* **Password reset:** a separate short-lived token (48 hours by default, `EMAIL_RESET_TOKEN_EXPIRE_HOURS`) is emailed as a link. The recovery endpoint responds identically whether or not the email exists.
 
----
+Sequence diagrams for login and password reset: [docs/diagrams.md](./docs/diagrams.md#authentication).
 
-### Production Environment
+## Frontend
 
-**Characteristics**:
-- Single domain with subdomains
-- HTTPS with automatic SSL certificates (Let's Encrypt)
-- No direct port exposure (only 80/443)
-- Real SMTP service configured
-- Production-grade logging
-- Optimized builds (no hot reload)
-- Secrets managed via environment variables
-- Database backups configured
+A React 19 single-page app in TypeScript, in `frontend/`.
 
-**URLs** (example with `yourdomain.com`):
-- Frontend: https://dashboard.yourdomain.com
-- Backend: https://api.yourdomain.com
-- Traefik: https://traefik.yourdomain.com (protected)
-- Adminer: https://adminer.yourdomain.com (protected, optional)
+| Concern | Tool |
+|---|---|
+| Build and dev server | [Vite](https://vite.dev), run with [Bun](https://bun.sh) |
+| Routing | [TanStack Router](https://tanstack.com/router), file-based, in `frontend/src/routes/` |
+| Server data | [TanStack Query](https://tanstack.com/query) |
+| API calls | A TypeScript client generated from the backend's OpenAPI schema, in `frontend/src/client/` (see [docs/ci-cd.md](./docs/ci-cd.md#the-generated-api-client)) |
+| UI components | [shadcn/ui](https://ui.shadcn.com) on Radix UI, in `frontend/src/components/ui/` |
+| Styling | [Tailwind CSS](https://tailwindcss.com) 4 |
+| Forms | React Hook Form with Zod validation |
+| End-to-end tests | [Playwright](https://playwright.dev), in `frontend/tests/` |
 
-**Docker Compose Files**:
-- `docker-compose.yml` - Base configuration
-- `docker-compose.traefik.yml` - Production Traefik (separate)
+**How the frontend reaches production:** there's no frontend container. The backend's Dockerfile has two stages:
 
-**Key Differences**:
-- Build optimizations enabled
-- Static file serving from Nginx (frontend)
-- Multiple backend replicas for load balancing
-- Production-grade secret management
-- Automated backups
-- Monitoring and alerting
-- CDN integration (optional)
+1. An `oven/bun` stage installs the frontend's dependencies and runs `bun run build`. Vite writes the static files to `backend/app/frontend/`.
+2. The Python stage copies those files into the backend image, where FastAPI serves them.
 
----
+`backend/app/frontend/` is git-ignored. When you run the backend outside Docker, build the frontend once with `cd frontend && bun run build`.
 
-## Network Architecture
+## Email
 
-### Docker Networks
+Emails such as password resets and new-account notices are designed as React components and sent as pre-rendered HTML:
 
 ```mermaid
-graph LR
-    subgraph default[Default Network<br/>Internal Communication]
-        FE[Frontend]
-        BE[Backend]
-        DB[(Database)]
-        MC[Mailcatcher]
-        ADM[Adminer]
+flowchart LR
+    subgraph design["Design time"]
+        components["packages/react-email/<br/>emails/*.tsx + ui/*.tsx<br/>(React Email components)"]
+        preview["bun run email:dev<br/>live preview :3333"]
+        export["bun run email:export"]
     end
-
-    subgraph traefik[Traefik-Public Network<br/>External Access]
-        TR[Traefik Proxy]
+    subgraph runtime["Run time (backend)"]
+        html["backend/app/email-templates/<br/>*.html with Jinja placeholders<br/>(committed)"]
+        render["render_email_template()<br/>fills project_name, link, ..."]
+        send["send_email()<br/>emails library, SMTP"]
     end
-
-    TR -.->|Routes traffic| FE
-    TR -.->|Routes traffic| BE
-
-    style default fill:#e3f2fd
-    style traefik fill:#fff3e0
+    components --> preview
+    components --> export --> html --> render --> send
+    send -->|"local: SMTP_HOST=mailpit"| mailpit["Mailpit<br/>localhost:8025"]
+    send -->|"deployed: your SMTP provider"| inbox["Recipient's inbox"]
 ```
 
-**Two Docker Networks**:
+* **Templates** live in the `packages/react-email` workspace package: one component per email in `emails/`, and shared building blocks (layout, button, heading, link, callout) in `ui/`. Values from the backend are written as Jinja placeholders in the component props, for example `link = "{{ link }}"`.
+* **`bun run email:export`** renders them to static HTML in `backend/app/email-templates/`. Commit those files: they're what the backend actually sends, so never edit them by hand.
+* **At run time** the backend fills in the placeholders with Jinja (`generate_*_email()` in `backend/app/utils.py`) and sends the email over SMTP.
+* **Email is sent only when** `SMTP_HOST` and `EMAILS_FROM_EMAIL` are set. Locally that's Mailpit, which accepts everything and shows it at <http://localhost:8025>. Mailpit doesn't support SMTP login, so leave `SMTP_USER` empty locally.
 
-1. **default**:
-   - Internal service-to-service communication
-   - Database, backend, and support services
-   - Not exposed to external traffic
+Details: [backend/README.md](./backend/README.md#email-templates).
 
-2. **traefik-public**:
-   - Bridge between external traffic and internal services
-   - Only Traefik and exposed services (frontend, backend)
-   - Enables zero-downtime deployments
+## Configuration
 
----
+All settings are environment variables, read by `backend/app/core/config.py`:
 
-## File Structure
+* **Locally**, from `.env` in the project root (copied from `.env.example`, never committed). Docker Compose also uses `.env` to fill in the values it passes to each service.
+* **In deployments**, from the deployment's own environment: GitHub secrets and variables passed by the deploy workflows, or FastAPI Cloud's settings.
 
-```
-project-root/
-├── .env                          # Environment variables (gitignored)
-├── .env.example                  # Environment template
-├── docker-compose.yml            # Base service definitions
-├── docker-compose.override.yml   # Development overrides
-├── docker-compose.traefik.yml    # Production Traefik config
-│
-├── backend/
+Required: `PROJECT_NAME`, `SECRET_KEY`, `FIRST_SUPERUSER`, `FIRST_SUPERUSER_PASSWORD` and the database (`POSTGRES_PASSWORD` for Compose, `DATABASE_URL` otherwise). Everything else has a default. `FASTAPI_ENV=development` relaxes checks for local work: `changethis` placeholders only warn, and the test-only `private` routes are enabled. See [development.md](./development.md#the-env-files).
+
+## Deployment Options
+
+| | FastAPI Cloud (default) | Your own server |
+|---|---|---|
+| Workflow | `deploy.yml`, on every push to `main` | `deploy-docker-compose.yml`, run manually |
+| Runs | The backend image on FastAPI Cloud | The full Compose stack (`compose.yml` + `compose.deploy.yml`) on a self-hosted runner |
+| Database | An external PostgreSQL, via `DATABASE_URL` | The `db` service on the same server |
+| HTTPS | Provided by FastAPI Cloud | Traefik with Let's Encrypt |
+| Guide | [deployment.md](./deployment.md) | [deployment-docker-compose.md](./deployment-docker-compose.md) |
+
+Diagrams of both: [docs/diagrams.md](./docs/diagrams.md#deployment).
+
+## Repository Layout
+
+```text
+.
+├── .agents/, .claude/        AI-assistant skills (FastAPI, SQLModel), linked by `uv sync`
+├── .github/
+│   ├── workflows/            CI and deployment (see docs/ci-cd.md)
+│   └── dependabot.yml        Monthly dependency update PRs
+├── .vscode/                  Recommended editor extensions
+├── backend/                  FastAPI application (see Backend above)
 │   ├── app/
-│   │   ├── main.py              # FastAPI application entry
-│   │   ├── api/
-│   │   │   ├── main.py          # API router setup
-│   │   │   ├── deps.py          # Dependency injection
-│   │   │   └── routes/          # API endpoints
-│   │   ├── core/
-│   │   │   ├── config.py        # Settings management
-│   │   │   ├── db.py            # Database connection
-│   │   │   └── security.py      # Auth utilities
-│   │   ├── models.py            # SQLModel database models
-│   │   ├── crud.py              # Database operations
-│   │   └── utils.py             # Helper functions
-│   ├── tests/                   # Pytest test suite
-│   ├── alembic/                 # Database migrations
-│   ├── scripts/                 # Utility scripts
-│   ├── pyproject.toml           # Python dependencies (uv)
-│   ├── uv.lock                  # Locked dependencies
-│   └── Dockerfile               # Backend container
-│
-└── frontend/
-    ├── src/
-    │   ├── main.tsx             # React app entry
-    │   ├── routes/              # TanStack Router pages
-    │   ├── components/          # Reusable React components
-    │   ├── client/              # Auto-generated API client
-    │   ├── hooks/               # Custom React hooks
-    │   └── assets/              # Static assets
-    ├── tests/                   # Playwright E2E tests
-    ├── package.json             # Node.js dependencies
-    ├── playwright.config.ts     # Test configuration
-    ├── nginx.conf               # Production Nginx config
-    └── Dockerfile               # Frontend container (multi-stage)
+│   ├── scripts/              prestart, test, lint and format helpers
+│   ├── tests/
+│   └── Dockerfile            Builds the frontend, then the backend image
+├── frontend/                 React application
+│   ├── src/                  routes/, components/, client/ (generated), hooks/
+│   ├── tests/                Playwright end-to-end tests
+│   └── Dockerfile.playwright Image for the playwright service
+├── packages/
+│   └── react-email/          Email templates (see Email above)
+├── scripts/                  Repository-level scripts (client generation, local CI)
+├── docs/                     Guides for this template
+├── img/                      Screenshots used in the README
+├── compose.yml, compose.override.yml, compose.deploy.yml
+├── .env.example              Template for your local .env
+├── package.json, bun.lock    Bun workspace: frontend/ and packages/*
+├── pyproject.toml, uv.lock   uv workspace: backend/, plus dev tools (prek, zizmor)
+├── .pre-commit-config.yaml   Checks run on every commit and in CI
+└── deployment.md, deployment-docker-compose.md, development.md
 ```
 
----
+Both package managers use **workspaces**, so one `bun install` and one `uv sync` at the root install everything.
 
-## Technology Decisions
+## Technology Choices
 
-### Why This Stack?
-
-**FastAPI (Backend)**:
-- Automatic API documentation
-- Type safety with Python type hints
-- High performance (async support)
-- Easy to learn, hard to misuse
-
-**React + TypeScript (Frontend)**:
-- Component-based architecture
-- Strong typing prevents runtime errors
-- Large ecosystem and community
-- Industry standard
-
-**PostgreSQL (Database)**:
-- Robust and reliable
-- Excellent performance
-- Rich feature set (JSON, full-text search, etc.)
-- Open source with strong community
-
-**Docker Compose (Orchestration)**:
-- Consistent dev and prod environments
-- Easy service management
-- Version controlled infrastructure
-- Simple to onboard new developers
-
-**Traefik (Proxy)**:
-- Automatic SSL certificate management
-- Dynamic configuration
-- Built-in load balancing
-- Excellent Docker integration
-
----
-
-## Scalability Considerations
-
-### Horizontal Scaling
-
-**Backend**:
-- Stateless design (JWT tokens, no sessions)
-- Can run multiple replicas behind load balancer
-- Database connection pooling
-
-**Frontend**:
-- Static assets can be served from CDN
-- Multiple Nginx instances
-
-**Database**:
-- Read replicas for scaling reads
-- Connection pooling
-- Consider managed services (AWS RDS, Google Cloud SQL)
-
-### Vertical Scaling
-
-- Increase container resources (CPU, memory)
-- Optimize database queries and indexes
-- Enable caching layer (Redis, if needed)
-
----
-
-## Security Features
-
-- **Authentication**: JWT tokens with expiration
-- **Password Storage**: Bcrypt hashing
-- **HTTPS**: Automatic SSL certificates in production
-- **CORS**: Configurable allowed origins
-- **SQL Injection**: Protected by SQLModel/SQLAlchemy
-- **XSS**: React's built-in protection
-- **Rate Limiting**: Can be configured in Traefik
-- **Security Headers**: Configured in Nginx/Traefik
-
----
-
-## Monitoring and Observability
-
-**Development**:
-- FastAPI automatic docs show request/response
-- Browser DevTools for frontend debugging
-- Docker logs: `docker compose logs -f`
-- Traefik dashboard: http://localhost:8090
-
-**Production** (to be configured):
-- Application logs (structured JSON)
-- Database slow query logs
-- Traefik access logs
-- Consider: Sentry (errors), Grafana (metrics), ELK stack (logs)
-
----
+* **FastAPI.** Typed Python, automatic validation and OpenAPI docs, and the generated frontend client follows from those docs.
+* **SQLModel.** One class serves as both a database table and an API schema, which reduces duplication for a small team.
+* **PostgreSQL.** A dependable default, available as a managed service almost everywhere.
+* **React, TanStack, shadcn/ui.** Mainstream, well-documented choices that AI coding assistants also know well.
+* **One deployable service.** Serving the built frontend from FastAPI means one container, one origin (no CORS in production), and one thing to deploy.
+* **Docker Compose with Traefik.** The same stack runs on a laptop and on a single server, and Traefik adds HTTPS without extra setup.
+* **uv and Bun.** Fast installs and one lockfile per language, with workspaces covering every package.
 
 ## Further Reading
 
-- [Development Guide](./development.md)
-- [Deployment Guide](./deployment.md)
-- [Backend Documentation](./backend/README.md)
-- [Frontend Documentation](./frontend/README.md)
-- [FastAPI Documentation](https://fastapi.tiangolo.com)
-- [React Documentation](https://react.dev)
-- [Traefik Documentation](https://doc.traefik.io/traefik/)
+* [docs/getting-started.md](./docs/getting-started.md): run it locally
+* [development.md](./development.md): day-to-day development
+* [docs/diagrams.md](./docs/diagrams.md): more diagrams
+* [docs/ci-cd.md](./docs/ci-cd.md): the GitHub Actions workflows
+* [docs/troubleshooting.md](./docs/troubleshooting.md): when something goes wrong

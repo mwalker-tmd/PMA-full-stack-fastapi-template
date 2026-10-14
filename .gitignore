@@ -1,51 +1,12 @@
-.vscode
+.vscode/*
+!.vscode/extensions.json
 node_modules/
+backend/app/frontend/
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 
-# Environment variables
-# Root .env file contains secrets (database passwords, API keys, etc.)
-# Frontend .env files typically contain public configuration (API URLs) but are ignored for consistency
+# Environment files hold local secrets. Copy the tracked .env.example
+# templates to .env instead (root and frontend/).
 .env
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-.venv/
-venv/
-ENV/
-
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-
-# IDEs
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db

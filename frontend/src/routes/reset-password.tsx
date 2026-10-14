@@ -60,7 +60,7 @@ export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
       {
-        title: "Reset Password - FastAPI Cloud",
+        title: "Reset Password - FastAPI Template",
       },
     ],
   }),
@@ -83,7 +83,7 @@ function ResetPassword() {
 
   const mutation = useMutation({
     mutationFn: (data: { new_password: string; token: string }) =>
-      LoginService.resetPassword({ requestBody: data }),
+      LoginService.resetPassword({ body: data }),
     onSuccess: () => {
       showSuccessToast("Password updated successfully")
       form.reset()

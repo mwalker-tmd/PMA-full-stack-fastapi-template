@@ -1,316 +1,139 @@
-# GitHub Secrets and Variables Setup for CI/CD
+# GitHub Secrets and Variables
 
-This document explains how to configure GitHub Secrets and Variables for the CI/CD workflows to run successfully.
+**You don't need any secrets or variables for CI.** The test workflows run on the public defaults in `.env.example`, so a new repository from this template has green CI with nothing configured. [ci-cd.md](./ci-cd.md#how-ci-is-configured) explains why.
 
-## Why Separate Secrets and Variables?
+Secrets and variables are only needed **to deploy**, and only for the deploy workflow you use:
 
-GitHub provides two distinct features for configuration management, following security best practices:
+* [FastAPI Cloud (`deploy.yml`)](#fastapi-cloud-deployyml), the default
+* [Self-hosted (`deploy-docker-compose.yml`)](#self-hosted-deploy-docker-composeyml), your own server
 
-### Repository Secrets (Sensitive Data)
-- **Encrypted** and never visible in logs
-- Cannot be viewed after creation
-- Used for: passwords, API keys, tokens, private keys
+If you haven't chosen a deployment yet, skip this page.
 
-### Repository Variables (Non-Sensitive Configuration)
-- **Visible** in logs and can be viewed/edited
-- Used for: URLs, names, ports, environment settings
-- Easy to update without security concerns
+## Secrets vs Variables
 
-This separation follows the **principle of least privilege** and makes configuration management clearer and safer.
+GitHub Actions has two kinds of stored configuration, both under **Settings → Secrets and variables → Actions**:
 
----
+| | Secrets | Variables |
+|---|---|---|
+| For | Passwords, keys, tokens, connection strings | Names, hostnames, email addresses, other non-sensitive settings |
+| Can you read the value later? | No. Write-only once saved. | Yes, in the settings page |
+| In workflow logs | Masked as `***` | Printed in plain text |
+| In a workflow | `${{ secrets.NAME }}` | `${{ vars.NAME }}` |
 
-## Required Configuration
+The rule here: **if leaking it would let someone log in, decrypt something, or impersonate the app, it's a secret.** Everything else is a variable, which is easier to check and change.
 
-### Repository Secrets (3 items)
+`FIRST_SUPERUSER` (the admin's email address) and `PROJECT_NAME` are variables for that reason. The admin's *password* is a secret.
 
-**Path**: Settings → Secrets and variables → Actions → **Secrets** tab
+## FastAPI Cloud (`deploy.yml`)
 
-| Secret Name | Description | Example Value for CI |
-|-------------|-------------|---------------------|
-| `SECRET_KEY` | Application secret key for JWT tokens | `test-secret-key-for-ci-only` |
-| `FIRST_SUPERUSER_PASSWORD` | Initial admin user password | `test-password-for-ci-only` |
-| `POSTGRES_PASSWORD` | Database password | `test-db-password-for-ci-only` |
+Step-by-step setup: [deployment.md](../deployment.md).
 
-### Repository Variables (21 items)
+| Name | Kind | Required | What it is |
+|---|---|---|---|
+| `FASTAPI_CLOUD_TOKEN` | Secret | Yes | Deploy token from FastAPI Cloud |
+| `FASTAPI_CLOUD_APP_ID` | Secret | Yes | Your FastAPI Cloud application ID |
+| `DATABASE_URL` | Secret | Yes | Connection URL from your database provider. Must be reachable from GitHub's runners. |
+| `SECRET_KEY` | Secret | Yes | Signs login tokens. Same value as configured in FastAPI Cloud. |
+| `FIRST_SUPERUSER_PASSWORD` | Secret | Yes | Password for the first admin account |
+| `PROJECT_NAME` | Variable | Yes | App name, shown in the UI and emails |
+| `FIRST_SUPERUSER` | Variable | Yes | Email address of the first admin account |
 
-**Path**: Settings → Secrets and variables → Actions → **Variables** tab
+Until both `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` are set, the workflow **skips** deployment with a notice instead of failing. `uv run fastapi cloud setup-ci --secrets-only --app-id <your-app-id>` sets those two for you (see [deployment.md](../deployment.md#configure-continuous-deployment)).
 
-| Variable Name | Description | Example Value for CI |
-|---------------|-------------|---------------------|
-| `PROJECT_NAME` | Project display name | `Test Project` |
-| `STACK_NAME` | Docker Compose stack name (no spaces) | `test-stack` |
-| `DOMAIN` | Domain name for routing | `localhost` |
-| `ENVIRONMENT` | Environment type | `local` |
-| `FRONTEND_HOST` | Frontend URL for backend to generate links | `http://localhost:5173` |
-| `BACKEND_CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `http://localhost,http://localhost:5173` |
-| `FIRST_SUPERUSER` | Initial admin user email | `admin@example.com` |
-| `POSTGRES_SERVER` | Database hostname (localhost for CI host networking) | `localhost` |
-| `POSTGRES_PORT` | Database port | `5432` |
-| `POSTGRES_USER` | Database username | `postgres` |
-| `POSTGRES_DB` | Database name | `app` |
-| `DOCKER_IMAGE_BACKEND` | Backend Docker image name | `backend` |
-| `DOCKER_IMAGE_FRONTEND` | Frontend Docker image name | `frontend` |
-| `TAG` | Docker image tag | `latest` |
-| `SMTP_HOST` | SMTP server host (mailcatcher for CI) | `mailcatcher` |
-| `SMTP_USER` | SMTP username | `user@example.com` |
-| `SMTP_PASSWORD` | SMTP password | `password` |
-| `SMTP_AUTH_ENABLED` | Enable SMTP authentication (False for mailcatcher) | `False` |
-| `EMAILS_FROM_EMAIL` | Email sender address | `info@example.com` |
-| `SMTP_TLS` | Use TLS for SMTP (mailcatcher doesn't use TLS) | `False` |
-| `SMTP_SSL` | Use SSL for SMTP | `False` |
-| `SMTP_PORT` | SMTP port (mailcatcher uses 1025) | `1025` |
-| `SENTRY_DSN` | Sentry error tracking DSN (dummy for CI) | `https://examplePublicKey@o0.ingest.sentry.io/0` |
+## Self-Hosted (`deploy-docker-compose.yml`)
 
----
+Step-by-step setup, including installing the self-hosted runner: [deployment-docker-compose.md](../deployment-docker-compose.md).
 
-## How to Add Secrets
+| Name | Kind | Required | What it is |
+|---|---|---|---|
+| `SECRET_KEY` | Secret | Yes | Signs login tokens |
+| `FIRST_SUPERUSER_PASSWORD` | Secret | Yes | Password for the first admin account |
+| `POSTGRES_PASSWORD` | Secret | Yes | Password for the PostgreSQL database that runs on your server |
+| `DOMAIN` | Variable | Yes | Your domain, e.g. `example.com`. Traefik serves the app there and gets its HTTPS certificate. |
+| `PROJECT_NAME` | Variable | Yes | App name |
+| `FIRST_SUPERUSER` | Variable | Yes | Email address of the first admin account |
+| `SMTP_HOST` | Variable | For email | Your email provider's SMTP server |
+| `EMAILS_FROM_EMAIL` | Variable | For email | Sender address for emails |
+| `SMTP_USER` | Variable | If your provider requires login | SMTP username |
+| `SMTP_PASSWORD` | Secret | If your provider requires login | SMTP password |
+| `SENTRY_DSN` | Variable | Optional | Enables error reporting to [Sentry](https://sentry.io) |
 
-### Step 1: Navigate to Secrets
+Emails are sent only when both `SMTP_HOST` and `EMAILS_FROM_EMAIL` are set. Set `SMTP_USER` and `SMTP_PASSWORD` only for a real email provider that requires login, never for Mailpit.
 
-1. Go to your GitHub repository
-2. Click on **Settings** (top navigation)
-3. In the left sidebar, click **Secrets and variables** → **Actions**
-4. Click the **"Secrets"** tab
+## Generating Secret Values
 
-### Step 2: Add Each Secret
-
-For each of the 3 secrets listed above:
-
-1. Click **"New repository secret"**
-2. Enter the **Name** (exactly as shown in table, case-sensitive)
-3. Enter the **Value** (use the suggested CI values or generate secure ones)
-4. Click **"Add secret"**
-
-### Step 3: Verify Secrets
-
-After adding all secrets, you should see 3 secrets listed:
-- `SECRET_KEY`
-- `FIRST_SUPERUSER_PASSWORD`
-- `POSTGRES_PASSWORD`
-
----
-
-## How to Add Variables
-
-### Step 1: Navigate to Variables
-
-1. In the same **Secrets and variables → Actions** page
-2. Click the **"Variables"** tab (next to "Secrets")
-
-### Step 2: Add Each Variable
-
-For each of the 21 variables listed above:
-
-1. Click **"New repository variable"**
-2. Enter the **Name** (exactly as shown in table, case-sensitive)
-3. Enter the **Value** (use the suggested CI values from the table)
-4. Click **"Add variable"**
-
-### Step 3: Verify Variables
-
-After adding all variables, you should see 21 variables listed.
-
-**Tip**: Variables are visible and editable, so you can easily verify values after creation.
-
----
-
-## Recommended Values for CI Testing
-
-### Secrets (Copy These Values)
+Use a random value for `SECRET_KEY` and each password:
 
 ```bash
-# Generate secure random values or use these test-safe values:
-SECRET_KEY=test-secret-key-for-ci-only
-FIRST_SUPERUSER_PASSWORD=test-password-for-ci-only
-POSTGRES_PASSWORD=test-db-password-for-ci-only
+openssl rand -hex 32
 ```
 
-### Variables (Copy These Values)
+The output contains only letters and digits, so it's also safe in a database URL, where characters like `@`, `:` or `/` would break it. Use a different value for each secret, and don't reuse your local `.env` values in a deployment.
+
+## Setting Them
+
+### With the GitHub CLI (recommended)
 
 ```bash
-PROJECT_NAME=Test Project
-STACK_NAME=test-stack
-DOMAIN=localhost
-ENVIRONMENT=local
-FRONTEND_HOST=http://localhost:5173
-BACKEND_CORS_ORIGINS=http://localhost,http://localhost:5173
-FIRST_SUPERUSER=admin@example.com
-POSTGRES_SERVER=localhost
-POSTGRES_PORT=5432
-POSTGRES_USER=postgres
-POSTGRES_DB=app
-DOCKER_IMAGE_BACKEND=backend
-DOCKER_IMAGE_FRONTEND=frontend
-TAG=latest
-SMTP_HOST=mailcatcher
-SMTP_USER=user@example.com
-SMTP_PASSWORD=password
-SMTP_AUTH_ENABLED=False
-EMAILS_FROM_EMAIL=info@example.com
-SMTP_TLS=False
-SMTP_SSL=False
-SMTP_PORT=1025
-SENTRY_DSN=https://examplePublicKey@o0.ingest.sentry.io/0
+gh secret set SECRET_KEY                          # prompts for the value
+gh variable set PROJECT_NAME --body "My App"
 ```
 
-**Note**: These are safe dummy/test values for CI. SMTP settings won't send real emails (tests mock email sending), and Sentry is disabled in non-production environments.
-
-**Important - POSTGRES_SERVER value**:
-- **Local dev** (`.env` file): `POSTGRES_SERVER=db` (Docker service name)
-- **CI** (GitHub Variable): `POSTGRES_SERVER=localhost` (host networking with exposed port 5432)
-- **Production**: Set to actual database hostname (e.g., RDS endpoint, Cloud SQL instance)
-
-This demonstrates the 12-factor app principle: same application code, different configuration per environment.
-
----
-
-## Why These Values Are Safe for CI
-
-**Secrets**:
-- Only used in ephemeral GitHub Actions runners
-- Never exposed in production
-- Reset with each test run
-- Not production credentials
-
-**Variables**:
-- Non-sensitive configuration
-- Appropriate for test environment
-- Can be viewed in logs (which is fine - they're not secrets!)
-- Easily updated as needed
-
----
-
-## Generating Secure Secrets (Optional)
-
-If you prefer to use secure random values even for CI:
+`gh secret set` without `--body` **prompts** for the value. It doesn't end up in your shell history, and no stray newline gets added. Check what's set with:
 
 ```bash
-# Generate a secure SECRET_KEY
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# Generate a secure password
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+gh secret list
+gh variable list
 ```
 
-Copy the output and use it as the secret value in GitHub.
+### In the browser
 
----
+**Settings → Secrets and variables → Actions**, then the **Secrets** or **Variables** tab, then **New repository secret** or **New repository variable**.
 
-## Workflows That Use These Configurations
+When pasting, make sure you don't copy a line break after the value. **A trailing newline becomes part of the secret**, and GitHub won't show it to you afterwards, because secrets can't be read back. A password with a hidden newline makes the database password, or the URL built from it, silently differ from what you meant.
 
-The following workflows require these secrets and variables:
+## Optional: Keep Deploy Secrets in an Environment
 
-1. **Test Backend** (`.github/workflows/test-backend.yml`)
-   - Runs backend unit tests
-   - Requires all database and application config
+Repository secrets are available to every workflow in the repository. For extra protection, store the deploy secrets in a GitHub **Environment** instead. A job then receives them only if it declares that environment, and you can limit the environment to the `main` branch or require an approval before each deployment.
 
-2. **Playwright Tests** (`.github/workflows/playwright.yml`)
-   - Runs end-to-end tests
-   - Requires full application stack configuration
+1. **Settings → Environments → New environment**, named `production`. Optionally, under **Deployment branches**, allow only `main`, and add **Required reviewers**.
+2. Add the deploy secrets and variables to the environment instead of the repository:
 
-3. **Test Docker Compose** (`.github/workflows/test-docker-compose.yml`)
-   - Tests docker-compose configuration
-   - Validates stack can build and start
+   ```bash
+   gh secret set SECRET_KEY --env production
+   gh variable set PROJECT_NAME --env production --body "My App"
+   ```
 
----
+3. Declare the environment in the deploy workflow, on **every job that reads the secrets**:
+   * `deploy.yml`: both the `check-config` job and the `deploy` job. If only `deploy` declares it, `check-config` can't see the FastAPI Cloud secrets and always skips deployment.
+   * `deploy-docker-compose.yml`: its `deploy` job.
+
+   ```yaml
+   jobs:
+     deploy:
+       environment: production
+       runs-on: ubuntu-latest
+   ```
+
+Which protection rules you can use, such as required reviewers, depends on your GitHub plan and on whether the repository is public or private. See GitHub's [environments documentation](https://docs.github.com/en/actions/deployment/targeting-different-environments/managing-environments-for-deployment).
+
+## Cleaning Up After Upgrading From an Older Template
+
+Earlier versions of this template needed many more repository secrets and variables, most of them for CI. If your repository predates this version, compare `gh secret list` and `gh variable list` with the tables above. **Anything not listed above isn't read by any workflow** and can be deleted:
+
+```bash
+gh variable delete NAME
+gh secret delete NAME
+```
 
 ## Troubleshooting
 
-### "Secret not found" or "Variable not found" Error
+**The Deploy workflow is green but nothing was deployed.** Open the run: the `check-config` job reports that `FASTAPI_CLOUD_TOKEN` or `FASTAPI_CLOUD_APP_ID` is not set. Set both (see [above](#fastapi-cloud-deployyml)). If you use an Environment, also check that `check-config` declares it.
 
-**Symptom**: Workflow fails with environment variable not set
+**A deployment can't connect to the database, or logins fail, although the values look right.** The secret may contain a trailing newline from pasting. Set it again with `gh secret set NAME` and type or paste the value at the prompt.
 
-**Solution**:
-1. Verify the name matches exactly (case-sensitive)
-2. Check you added it to the correct tab (Secrets vs Variables)
-3. Ensure it's a **repository** secret/variable (not environment)
-4. Re-run the workflow after adding
+**Emails aren't sent from a deployment.** Check that `SMTP_HOST` and `EMAILS_FROM_EMAIL` are set, and that `SMTP_USER` and `SMTP_PASSWORD` match your email provider.
 
-### How to Update Values
+**I changed a secret, but the app still uses the old value.** Secrets are read when a workflow runs. Run the deploy workflow again.
 
-**Secrets**: Must delete and recreate (cannot edit)
-**Variables**: Click pencil icon to edit value directly
-
-### Testing Locally vs CI
-
-**Local development** uses `.env` file:
-```bash
-# .env (local only, gitignored)
-SECRET_KEY=your-local-secret
-# ... etc
-```
-
-**CI workflows** use GitHub Secrets + Variables (configured above)
-
-**Production deployment** uses server environment or cloud secrets manager
-
----
-
-## Production Deployment Notes
-
-**For production**, you'll use the same pattern but with different values:
-
-- **Secrets**: Use strong, randomly generated values
-- **Variables**: Use production URLs, domains, and configuration
-- **Storage**: Consider using cloud provider secrets managers:
-  - AWS: Secrets Manager, Systems Manager Parameter Store
-  - Google Cloud: Secret Manager
-  - Azure: Key Vault
-  - Kubernetes: Secrets and ConfigMaps
-
----
-
-## Security Best Practices
-
-### ✅ DO:
-- Use GitHub Secrets for all passwords, keys, and tokens
-- Use GitHub Variables for non-sensitive configuration
-- Rotate secrets periodically
-- Use different values for dev, staging, and production
-- Document what each secret/variable is for
-
-### ❌ DON'T:
-- Put secrets in Variables (they're visible!)
-- Hardcode secrets in workflow files
-- Commit secrets to git
-- Use production credentials in CI
-- Share secrets in plain text (use secure sharing tools)
-
----
-
-## Next Steps
-
-After configuring secrets and variables:
-
-1. ✅ Verify all 3 secrets are added
-2. ✅ Verify all 21 variables are added
-3. ✅ Push your code to GitHub
-4. ✅ Workflows will automatically run
-5. ✅ Check the Actions tab to verify tests pass
-
-For more information:
-- [CI/CD Guide](./ci-cd.md)
-- [Troubleshooting](./troubleshooting.md)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions/security-guides/encrypted-secrets)
-- [GitHub Variables Documentation](https://docs.github.com/en/actions/learn-github-actions/variables)
-
----
-
-## For Template Users
-
-If you're using this as a template for a new project:
-
-1. Create your repository from this template
-2. Follow the steps above to add 3 Secrets
-3. Follow the steps above to add 21 Variables
-4. Update values for your project as needed
-5. Your CI/CD will work automatically
-
-That's it! This is the professional, industry-standard approach to configuration management.
-
----
-
-**Last Updated**: January 2026
-
-For questions about setup, see [Troubleshooting Guide](./troubleshooting.md) or open a GitHub Discussion.
+For problems running the app itself, see [troubleshooting.md](./troubleshooting.md).

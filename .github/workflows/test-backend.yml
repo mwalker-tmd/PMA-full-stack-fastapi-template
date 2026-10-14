@@ -3,57 +3,34 @@ name: Test Backend
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
-    types:
-      - opened
-      - synchronize
+permissions:
+  contents: read
 
 jobs:
   test-backend:
     runs-on: ubuntu-latest
-    env:
-      # Secrets (sensitive data)
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      # Variables (non-sensitive configuration)
-      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
-      STACK_NAME: ${{ vars.STACK_NAME }}
-      DOMAIN: ${{ vars.DOMAIN }}
-      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
-      FRONTEND_HOST: ${{ vars.FRONTEND_HOST }}
-      BACKEND_CORS_ORIGINS: ${{ vars.BACKEND_CORS_ORIGINS }}
-      FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
-      POSTGRES_SERVER: ${{ vars.POSTGRES_SERVER }}
-      POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
-      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
-      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
-      DOCKER_IMAGE_BACKEND: ${{ vars.DOCKER_IMAGE_BACKEND }}
-      DOCKER_IMAGE_FRONTEND: ${{ vars.DOCKER_IMAGE_FRONTEND }}
-      TAG: ${{ vars.TAG }}
-      SMTP_HOST: ${{ vars.SMTP_HOST }}
-      SMTP_USER: ${{ vars.SMTP_USER }}
-      SMTP_PASSWORD: ${{ vars.SMTP_PASSWORD }}
-      EMAILS_FROM_EMAIL: ${{ vars.EMAILS_FROM_EMAIL }}
-      SMTP_TLS: ${{ vars.SMTP_TLS }}
-      SMTP_SSL: ${{ vars.SMTP_SSL }}
-      SMTP_PORT: ${{ vars.SMTP_PORT }}
-      SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+    timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.10"
+          python-version-file: .python-version
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
-          version: "0.4.15"
-          enable-cache: true
+          version: "latest-known"
+      # CI runs a throwaway stack, so it uses the public local defaults from
+      # .env.example and never needs repository secrets
+      - name: Create .env
+        run: cp .env.example .env
       - run: docker compose down -v --remove-orphans
-      - run: docker compose up -d db mailcatcher
+      - run: docker compose up -d --wait db mailpit
       - name: Migrate DB
         run: uv run bash scripts/prestart.sh
         working-directory: backend
@@ -62,7 +39,7 @@ jobs:
         working-directory: backend
       - run: docker compose down -v --remove-orphans
       - name: Store coverage files
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-html
           path: backend/htmlcov

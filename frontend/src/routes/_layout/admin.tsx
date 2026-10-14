@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Suspense } from "react"
 
 import { type UserPublic, UsersService } from "@/client"
@@ -11,17 +11,26 @@ import useAuth from "@/hooks/useAuth"
 
 function getUsersQueryOptions() {
   return {
-    queryFn: () => UsersService.readUsers({ skip: 0, limit: 100 }),
+    queryFn: async () =>
+      (await UsersService.readUsers({ query: { skip: 0, limit: 100 } })).data,
     queryKey: ["users"],
   }
 }
 
 export const Route = createFileRoute("/_layout/admin")({
   component: Admin,
+  beforeLoad: async () => {
+    const { data: user } = await UsersService.readUserMe()
+    if (!user.is_superuser) {
+      throw redirect({
+        to: "/",
+      })
+    }
+  },
   head: () => ({
     meta: [
       {
-        title: "Admin - FastAPI Cloud",
+        title: "Admin - FastAPI Template",
       },
     ],
   }),

@@ -6,9 +6,13 @@ import { defineConfig } from "vite"
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  build: {
+    outDir: "../backend/app/frontend",
+    emptyOutDir: true,
+  },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   plugins: [

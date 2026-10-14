@@ -1,401 +1,232 @@
 # Getting Started
 
-This guide will help you set up and run the Full Stack FastAPI project on your local machine.
+This guide takes you from a clean machine to the full application running locally, with a login that works. It assumes no prior experience with this stack.
 
-## Table of Contents
+You'll end up with:
 
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [First Time Setup](#first-time-setup)
-- [Running the Application](#running-the-application)
-- [Accessing the Application](#accessing-the-application)
-- [Next Steps](#next-steps)
-- [Common Issues](#common-issues)
+* The web app at <http://localhost:8000>, served by FastAPI
+* Interactive API docs at <http://localhost:8000/docs>
+* A PostgreSQL database, a database admin UI, and a mail catcher for the emails the app sends
+
+## What's in the Stack
+
+Everything runs in Docker, so the only thing you need to *run* the app is Docker.
+
+| Service | What it is | URL |
+|---|---|---|
+| `backend` | FastAPI on Python 3.14. Serves the API **and** the built React frontend. | <http://localhost:8000> |
+| `db` | PostgreSQL | `localhost:5432` |
+| `adminer` | Web UI for browsing the database | <http://localhost:8080> |
+| `mailpit` | Catches emails, such as password resets, instead of sending them | <http://localhost:8025> |
+| `proxy` | Traefik reverse proxy, the same routing used in deployments | <http://localhost> (dashboard: <http://localhost:8090>) |
+| `playwright` | Helper for running the end-to-end tests. Not a long-running service. | |
+
+The frontend is built with [Bun](https://bun.sh/) inside the `backend` image, so there is no separate frontend server to start. Passwords are hashed with Argon2 (via `pwdlib`).
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed on your system:
+### To run the app
 
-### Required
+* [Git](https://git-scm.com/downloads)
+* [Docker Desktop](https://www.docker.com/products/docker-desktop/) (macOS, Windows), or Docker Engine with the Compose plugin (Linux)
 
-- **Docker Desktop** (v20.10 or higher)
-  - [Download for Mac](https://docs.docker.com/desktop/install/mac-install/)
-  - [Download for Windows](https://docs.docker.com/desktop/install/windows-install/)
-  - [Download for Linux](https://docs.docker.com/desktop/install/linux-install/)
-- **Git** (v2.30 or higher)
-  - Check: `git --version`
-  - [Install Git](https://git-scm.com/downloads)
+On Windows, run the commands in this guide in [WSL](https://learn.microsoft.com/windows/wsl/install) or Git Bash.
 
-### Optional (for local development outside Docker)
+### To develop: write code, commit, run tests
 
-- **Python 3.10-3.13** (for backend development)
-  - Recommended: Use [uv](https://docs.astral.sh/uv/) for Python environment management
-- **Node.js 24+** (for frontend development)
-  - Recommended: Use [fnm](https://github.com/Schniz/fnm) or [nvm](https://github.com/nvm-sh/nvm)
+You also need these. Install them before your first commit, even if you only work on the backend:
+
+* [uv](https://docs.astral.sh/uv/getting-started/installation/), which manages Python. It downloads Python 3.14 automatically; you don't need to install Python yourself.
+* [Bun](https://bun.sh/docs/installation), which manages the frontend. The pre-commit hooks use it to lint the frontend and to regenerate the frontend API client whenever backend code changes, so **every** developer needs it.
+
+Check what you have:
+
+```bash
+git --version
+docker compose version
+uv --version
+bun --version
+```
 
 ## Quick Start
 
-If you just want to see it running:
+If you've done this before, these are all the steps. Each is explained below.
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
-cd YOUR-REPO-NAME
-
-# 2. Copy environment template
+git clone https://github.com/<your-account>/<your-repo>.git
+cd <your-repo>
 cp .env.example .env
-
-# 3. Generate secure keys (see below)
-
-# 4. Start all services
-docker compose watch
+cp frontend/.env.example frontend/.env
+# Edit .env: set SECRET_KEY, FIRST_SUPERUSER_PASSWORD and POSTGRES_PASSWORD
+# to values from: openssl rand -hex 32
+docker compose run --rm backend bash scripts/prestart.sh
+docker compose up -d --wait proxy db adminer backend mailpit
 ```
 
-That's it! The application will be running at http://localhost:5173
+Then open <http://localhost:8000> and log in.
 
-## First Time Setup
+## Step by Step
 
-### 1. Clone the Repository
+### 1. Get the code
+
+If you haven't yet, create your own repository from the template: click **Use this template** on the GitHub page. Then clone it:
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
-cd YOUR-REPO-NAME
+git clone https://github.com/<your-account>/<your-repo>.git
+cd <your-repo>
 ```
 
-### 2. Set Up Environment Variables
+All the commands below run from this project root folder.
 
-Copy the example environment file:
+### 2. Create your environment files
+
+Settings live in `.env` files, which are never committed because they hold passwords. The repository tracks templates for them, ending in `.example`. Copy them:
 
 ```bash
 cp .env.example .env
+cp frontend/.env.example frontend/.env
 ```
 
-### 3. Generate Secure Keys
+### 3. Set your secrets
 
-**IMPORTANT**: The `.env.example` file contains placeholder values marked as `changethis`. You must replace these with secure, randomly generated values.
-
-Generate secure keys using Python:
+`.env` ships with `changethis` placeholders. Replace three of them with random values. Run this once per value and copy each result:
 
 ```bash
-# Generate SECRET_KEY
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# Generate FIRST_SUPERUSER_PASSWORD
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-
-# Generate POSTGRES_PASSWORD
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+openssl rand -hex 32
 ```
 
-Update the following variables in your `.env` file:
+Open `.env` in your editor and set:
 
-```env
-SECRET_KEY=<generated-secret-key>
-FIRST_SUPERUSER_PASSWORD=<generated-password>
-POSTGRES_PASSWORD=<generated-password>
-```
+| Variable | What it's for |
+|---|---|
+| `SECRET_KEY` | Signs login tokens. Required, with no default. |
+| `FIRST_SUPERUSER_PASSWORD` | Password of the admin account you'll log in with |
+| `POSTGRES_PASSWORD` | Database password |
 
-**Optional Configuration**:
+Optionally, also change `FIRST_SUPERUSER` (the admin's email, `admin@example.com` by default) and `PROJECT_NAME`.
 
-```env
-# Change the default admin email
-FIRST_SUPERUSER=your-email@example.com
+Use `openssl rand -hex 32` rather than typing your own passwords. Its output contains only letters and digits, so it is safe inside the database connection URL. Characters such as `@`, `/` or `:` in `POSTGRES_PASSWORD` would break that URL.
 
-# Change the project name
-PROJECT_NAME="Your Project Name"
-STACK_NAME=your-project-name
-```
+Every other variable in `.env` is optional and already set for local development. Each one is explained by a comment in `.env.example`.
 
-### 4. Understand the .env File
-
-Key environment variables explained:
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `DOMAIN` | Domain for Traefik routing | `localhost` |
-| `ENVIRONMENT` | Environment type | `local` |
-| `SECRET_KEY` | JWT token signing | `changethis` ⚠️ |
-| `FIRST_SUPERUSER` | Admin email | `admin@example.com` |
-| `FIRST_SUPERUSER_PASSWORD` | Admin password | `changethis` ⚠️ |
-| `POSTGRES_PASSWORD` | Database password | `changethis` ⚠️ |
-| `BACKEND_CORS_ORIGINS` | Allowed CORS origins | Localhost URLs |
-
-⚠️ = Must be changed before deployment
-
-## Running the Application
-
-### Using Docker Compose (Recommended)
-
-Start all services with hot reload:
+### 4. Prepare the database
 
 ```bash
-docker compose watch
+docker compose run --rm backend bash scripts/prestart.sh
 ```
 
-This command:
-- Builds all Docker images (first time only)
-- Starts all services (database, backend, frontend, etc.)
-- Watches for file changes and auto-reloads
-- Runs database migrations automatically
+This builds the Docker images, starts PostgreSQL, applies the database migrations, and creates your admin account. The **first run takes several minutes** while Docker downloads and builds images. Later runs take seconds.
 
-**Note**: The first time you run this, it will take 5-10 minutes to download images and build containers.
+It's done when you see `Initial data created`.
 
-### Verify Services Are Running
+### 5. Start the application
 
-Check the status of all containers:
+```bash
+docker compose up -d --wait proxy db adminer backend mailpit
+```
+
+`-d` runs everything in the background. `--wait` returns once the services are healthy. Check them with:
 
 ```bash
 docker compose ps
 ```
 
-You should see all services with "Up" status:
-- `db` - PostgreSQL database
-- `backend` - FastAPI server
-- `frontend` - React/Vite dev server
-- `proxy` - Traefik reverse proxy
-- `adminer` - Database admin UI
-- `mailcatcher` - Email testing tool
+`backend`, `db` and `mailpit` should show `(healthy)`.
 
-### View Logs
+> **Why list the services?** A bare `docker compose up -d --wait` also starts the `playwright` test helper, which exits immediately. Compose then reports `container ... playwright-1 exited (0)` and returns an error, even though the app is running fine.
 
-```bash
-# All services
-docker compose logs -f
+### 6. Open the app and log in
 
-# Specific service
-docker compose logs -f backend
-docker compose logs -f frontend
-```
+| What | URL |
+|---|---|
+| The app | <http://localhost:8000> |
+| API docs (Swagger UI) | <http://localhost:8000/docs> |
+| Database admin (Adminer) | <http://localhost:8080> |
+| Emails sent by the app (Mailpit) | <http://localhost:8025> |
+| Traefik dashboard | <http://localhost:8090> |
 
-## Accessing the Application
+Log in to the app with the `FIRST_SUPERUSER` email and the `FIRST_SUPERUSER_PASSWORD` you set in step 3.
 
-Once all services are running, you can access:
+To see email working, log out, click **Forgot your password?**, and enter the admin email. The reset email shows up in Mailpit.
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| **Frontend** | http://localhost:5173 | Main application UI |
-| **Backend API** | http://localhost:8000 | REST API |
-| **API Docs** | http://localhost:8000/docs | Interactive Swagger UI |
-| **Alternative Docs** | http://localhost:8000/redoc | ReDoc documentation |
-| **Adminer** | http://localhost:8080 | Database management |
-| **Traefik Dashboard** | http://localhost:8090 | Proxy status |
-| **Mailcatcher** | http://localhost:1080 | Caught emails |
+In Adminer, use **System** `PostgreSQL`, **Server** `db`, **Username** `postgres`, **Password** your `POSTGRES_PASSWORD`, and **Database** `app`.
 
-### Login Credentials
+## Everyday Commands
 
-Use these credentials to log in at http://localhost:5173:
-
-- **Email**: `admin@example.com` (or the email you set in `.env`)
-- **Password**: The value of `FIRST_SUPERUSER_PASSWORD` from your `.env` file
-
-## Next Steps
-
-### 1. Explore the Application
-
-- Log in to the frontend
-- Create a new user (Admin → Users → Add User)
-- Create some items (Dashboard → Items)
-- Check the API docs at http://localhost:8000/docs
-
-### 2. Set Up Pre-commit Hooks (Optional)
-
-Pre-commit hooks ensure code quality before commits:
+**Live reload while you code.** Watch mode syncs your changes into the running containers and restarts or rebuilds as needed. It runs in the foreground; stop it with `Ctrl+C`:
 
 ```bash
-cd backend
-uv run prek install -f
-```
-
-**Note**: Requires Python 3.10-3.13. If you get an error, this is optional for running the app.
-
-### 3. Run Tests
-
-**Backend tests**:
-```bash
-docker compose exec backend bash /app/scripts/test.sh
-```
-
-**Frontend E2E tests**:
-```bash
-docker compose run --rm playwright npx playwright test
-```
-
-### 4. Learn the Codebase
-
-- Read [ARCHITECTURE.md](../ARCHITECTURE.md) for system overview
-- Explore [backend/README.md](../backend/README.md) for API development
-- Check [frontend/README.md](../frontend/README.md) for UI development
-- Review [development.md](../development.md) for detailed dev workflows
-
-### 5. Make Your First Change
-
-Try modifying the homepage:
-
-1. Edit `frontend/src/routes/_layout/index.tsx`
-2. Save the file
-3. Browser auto-refreshes with your changes
-
-## Common Issues
-
-### Docker Not Running
-
-**Error**: `Cannot connect to the Docker daemon`
-
-**Solution**: Make sure Docker Desktop is running
-
-### Port Already in Use
-
-**Error**: `Bind for 0.0.0.0:5173 failed: port is already allocated`
-
-**Solution**: Another application is using that port. Either:
-- Stop the other application
-- Change the port in `docker-compose.override.yml`
-
-### Database Connection Failed
-
-**Error**: `connection to server at "db", port 5432 failed`
-
-**Cause**: Database hasn't finished initializing
-
-**Solution**: Wait 30 seconds and try again. First startup is slower.
-
-### "changethis" Warnings in Logs
-
-**Warning**: `The value of SECRET_KEY is "changethis"`
-
-**Solution**: You forgot to update the secure keys in `.env`. See [Generate Secure Keys](#3-generate-secure-keys).
-
-### Hot Reload Not Working
-
-**Issue**: Changes to code don't reflect in browser
-
-**Solution**:
-1. Make sure you're using `docker compose watch` (not `up`)
-2. Check if the file is mounted correctly:
-   ```bash
-   docker compose exec backend ls /app/app
-   docker compose exec frontend ls /app/src
-   ```
-
-### Cannot Access Frontend
-
-**Issue**: http://localhost:5173 shows "Connection refused"
-
-**Troubleshooting**:
-```bash
-# Check if frontend container is running
-docker compose ps frontend
-
-# Check frontend logs
-docker compose logs frontend
-
-# Restart the service
-docker compose restart frontend
-```
-
-### Performance Issues on Mac
-
-**Issue**: Docker containers are slow on macOS
-
-**Solution**:
-1. Increase Docker Desktop resources:
-   - Open Docker Desktop → Settings → Resources
-   - Increase CPUs to 4+ and Memory to 8GB+
-2. Use Docker's VirtioFS for better file system performance:
-   - Settings → General → Enable VirtioFS
-
-### Need to Reset Everything
-
-If things get really messed up:
-
-```bash
-# Stop all containers and remove volumes (deletes database!)
-docker compose down -v
-
-# Remove all images
-docker compose down --rmi all
-
-# Start fresh
 docker compose watch
 ```
 
-⚠️ **Warning**: This deletes all your data!
-
-## Development Workflows
-
-### Stop the Application
+**See logs:**
 
 ```bash
-# Stop all services (keeps data)
-docker compose stop
+docker compose logs backend      # one service
+docker compose logs -f backend   # follow live, Ctrl+C to stop
+```
 
-# Stop and remove containers (keeps data)
+**Stop the app.** Your data is kept:
+
+```bash
 docker compose down
+```
 
-# Stop and remove containers + volumes (deletes data!)
+Start it again with step 5.
+
+**Start over with an empty database.** This deletes all data:
+
+```bash
 docker compose down -v
 ```
 
-### Restart a Single Service
+Then repeat steps 4 and 5. Do this after changing `POSTGRES_PASSWORD`, because the existing database keeps the password it was created with.
+
+## Set Up Your Development Tools
+
+Do this once before you write code. It needs uv and Bun (see [Prerequisites](#prerequisites)).
 
 ```bash
-docker compose restart backend
-docker compose restart frontend
+uv sync                    # Python dependencies, installs Python 3.14 if needed
+bun install                # frontend dependencies
+uv run prek install -f     # run the code checks automatically on every commit
 ```
 
-### Rebuild After Dependency Changes
+`uv sync` also activates the FastAPI and SQLModel guides for AI coding assistants, which are linked from `.claude/skills/` and `.agents/skills/`.
 
-If you modify `package.json` or `pyproject.toml`:
+From here:
 
-```bash
-# Rebuild and restart
-docker compose up -d --build
-```
+* **Run the backend and frontend dev servers on your machine**, for the fastest feedback: see [development.md](../development.md#local-development)
+* **Run the same checks CI runs, before you push:** `bash scripts/test-ci-docker.sh` (add `--playwright` for the end-to-end tests)
+* **Run the code checks on everything:** `uv run prek run --all-files`
 
-### Access Container Shell
+## Common First-Run Problems
 
-```bash
-# Backend
-docker compose exec backend bash
+For anything not listed here, see [troubleshooting.md](./troubleshooting.md).
 
-# Frontend
-docker compose exec frontend sh
+**`required variable SECRET_KEY is missing a value`** (or `POSTGRES_PASSWORD`, `PROJECT_NAME`...)
+You skipped step 2, or ran the command outside the project root. `.env` must exist next to `compose.yml`.
 
-# Database
-docker compose exec db psql -U postgres -d app
-```
+**`port is already allocated`** or **`address already in use`**
+Something else is using one of the ports (80, 5432, 8000, 8025, 8080, 8090). Find it with `lsof -nP -iTCP:8000 -sTCP:LISTEN` (swap in the port number). It's often another project's Docker containers, or this project's own stack started from a different folder.
 
-### Run Database Migrations
+**`FATAL: database "app" does not exist`** when running backend commands on your machine
+A local PostgreSQL (Postgres.app, Homebrew `postgresql`) is answering on `localhost:5432` instead of the Docker database. Docker doesn't report a port conflict in this case; the local server silently wins. Check with `lsof -nP -iTCP:5432 -sTCP:LISTEN`, stop it (quit Postgres.app, or `brew services stop postgresql@<version>`), and try again.
 
-Migrations run automatically on startup. To run manually:
+**`The value of SECRET_KEY is "changethis"`**
+A placeholder is still in `.env`. Locally that's only a warning, but deployments refuse to start. Go back to step 3.
 
-```bash
-docker compose exec backend alembic upgrade head
-```
+**`Cannot connect to the Docker daemon`**
+Docker isn't running. Start Docker Desktop and wait until it reports that it's running.
 
-### Generate Frontend API Client
+**Login fails with the right password after you changed `.env`**
+The admin account is created only once, when the database is first prepared. To apply new `FIRST_SUPERUSER` or `FIRST_SUPERUSER_PASSWORD` values, start over with `docker compose down -v` and repeat steps 4 and 5.
 
-When you change the backend API:
+## Where Next
 
-```bash
-./scripts/generate-client.sh
-```
-
-## Getting Help
-
-- **Documentation**: Check `/docs` folder and `*.md` files
-- **API Docs**: http://localhost:8000/docs (interactive!)
-- **FastAPI Docs**: https://fastapi.tiangolo.com
-- **React Docs**: https://react.dev
-- **Issues**: Open a GitHub issue in this repository
-
-## What's Next?
-
-Now that you have the application running:
-
-1. **Customize**: Update the project name, colors, and branding
-2. **Extend**: Add new API endpoints and pages
-3. **Deploy**: Follow [deployment.md](../deployment.md) to go live
-4. **Learn**: Read the [architecture docs](../ARCHITECTURE.md) to understand the system
-
-Happy coding! 🚀
+* [development.md](../development.md): local dev servers, Docker Compose files, `.env` details, pre-commit hooks
+* [backend/README.md](../backend/README.md) and [frontend/README.md](../frontend/README.md): working on each half of the app
+* [ci-cd.md](./ci-cd.md): what the GitHub Actions checks do (no setup needed)
+* [deployment.md](../deployment.md): deploy to FastAPI Cloud, the default
+* [deployment-docker-compose.md](../deployment-docker-compose.md): deploy to your own server
+* [github-secrets-setup.md](./github-secrets-setup.md): the secrets and variables a deployment needs

@@ -1,548 +1,188 @@
 # Deployment Checklist
 
-Use this checklist to ensure you've completed all necessary steps before deploying to production.
+Step-by-step checklists for the three ways to run this application, from "nothing set up" to "verified working". Work through the one you need, top to bottom, and tick each item.
 
-## Table of Contents
+| Where | Use it for | Needs | Guide |
+|---|---|---|---|
+| **[A. Your computer](#a-local-docker-desktop)** | Development, demos, trying things out | Docker Desktop | [getting-started.md](./getting-started.md) |
+| **[B. FastAPI Cloud](#b-fastapi-cloud)** (the default) | A public deployment without running a server | A FastAPI Cloud account and an external PostgreSQL | [deployment.md](../deployment.md) |
+| **[C. Your own server](#c-self-hosted-server-with-a-github-actions-runner)** | Full control, everything on one machine | A Linux server, a domain, and a self-hosted GitHub Actions runner | [deployment-docker-compose.md](../deployment-docker-compose.md) |
 
-- [Pre-Deployment](#pre-deployment)
-- [Server Setup](#server-setup)
-- [Environment Configuration](#environment-configuration)
-- [Database Setup](#database-setup)
-- [Application Deployment](#application-deployment)
-- [Post-Deployment](#post-deployment)
-- [Security Hardening](#security-hardening)
-- [Monitoring & Maintenance](#monitoring--maintenance)
+**Choosing between B and C.** FastAPI Cloud is the template's default because there's no server to maintain: HTTPS, restarts and scaling are handled for you, and it deploys automatically on every push to `main`. You do need a PostgreSQL database from a provider, and should check FastAPI Cloud's current pricing for your situation. A self-hosted server costs a small monthly fee for a cloud VM, needs no other services, and teaches you more about how deployment works. But keeping it updated, backed up and secure is up to you. Both deploy workflows are included, and the FastAPI Cloud one skips itself until it's configured, so you can use either without removing the other.
 
 ---
 
-## Pre-Deployment
+## A. Local (Docker Desktop)
 
-### Code & Testing
+Full explanations are in [getting-started.md](./getting-started.md).
 
-- [ ] All tests passing locally
+- [ ] Docker Desktop is installed and running (`docker info` succeeds)
+- [ ] Repository cloned, and the commands below run from its root folder
+- [ ] Environment files created:
   ```bash
-  docker compose exec backend bash /app/scripts/test.sh
-  docker compose run --rm playwright npx playwright test
+  cp .env.example .env
+  cp frontend/.env.example frontend/.env
   ```
-- [ ] No lint errors
+- [ ] `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD` and `POSTGRES_PASSWORD` in `.env` replaced with values from `openssl rand -hex 32`
+- [ ] Ports 80, 5432, 8000, 8025, 8080 and 8090 are free, and no local PostgreSQL is running (`lsof -nP -iTCP:5432 -sTCP:LISTEN` shows nothing)
+- [ ] Database prepared:
   ```bash
-  cd backend && uv run prek run --all-files
+  docker compose run --rm backend bash scripts/prestart.sh
   ```
-- [ ] Code reviewed and approved
-- [ ] Git branch is clean (no uncommitted changes)
-- [ ] Version/tag created for this release
+- [ ] Stack started, with every service healthy:
   ```bash
-  git tag -a v1.0.0 -m "Release version 1.0.0"
-  git push origin v1.0.0
-  ```
-
-### Documentation
-
-- [ ] README.md updated with production URLs
-- [ ] API documentation reviewed and accurate
-- [ ] Environment variables documented
-- [ ] Deployment instructions tested
-- [ ] Rollback plan documented
-
-### Domain & DNS
-
-- [ ] Domain name purchased/registered
-- [ ] DNS records configured:
-  - [ ] A record: `yourdomain.com` → Server IP
-  - [ ] CNAME: `*.yourdomain.com` → `yourdomain.com` (wildcard)
-  - [ ] Or individual CNAMEs for:
-    - `api.yourdomain.com`
-    - `dashboard.yourdomain.com`
-    - `traefik.yourdomain.com`
-- [ ] DNS propagation verified (use `dig` or online DNS checker)
-
----
-
-## Server Setup
-
-### Server Provisioning
-
-- [ ] Cloud provider account created (AWS, DigitalOcean, Linode, etc.)
-- [ ] Server instance created:
-  - [ ] Minimum specs: 2 CPU, 4GB RAM, 50GB storage
-  - [ ] Recommended: 4 CPU, 8GB RAM, 100GB storage
-  - [ ] OS: Ubuntu 22.04 LTS or Debian 12
-- [ ] Server accessible via SSH
-  ```bash
-  ssh root@your-server-ip
-  ```
-
-### System Updates
-
-- [ ] System packages updated
-  ```bash
-  apt update && apt upgrade -y
-  ```
-- [ ] Timezone set
-  ```bash
-  timedatectl set-timezone America/New_York
-  ```
-- [ ] Hostname configured
-  ```bash
-  hostnamectl set-hostname your-hostname
-  ```
-
-### Docker Installation
-
-- [ ] Docker Engine installed (NOT Docker Desktop)
-  ```bash
-  curl -fsSL https://get.docker.com -o get-docker.sh
-  sh get-docker.sh
-  ```
-- [ ] Docker Compose installed
-  ```bash
-  apt install docker-compose-plugin -y
-  ```
-- [ ] Docker running and enabled
-  ```bash
-  systemctl enable docker
-  systemctl start docker
-  docker --version
-  docker compose version
-  ```
-
-### User Setup
-
-- [ ] Non-root user created
-  ```bash
-  adduser deploy
-  usermod -aG sudo deploy
-  usermod -aG docker deploy
-  ```
-- [ ] SSH key authentication configured for deploy user
-- [ ] Password authentication disabled in SSH config (optional but recommended)
-
-### Firewall
-
-- [ ] UFW (Uncomplicated Firewall) enabled
-  ```bash
-  ufw allow OpenSSH
-  ufw allow 80/tcp    # HTTP
-  ufw allow 443/tcp   # HTTPS
-  ufw enable
-  ufw status
-  ```
-
----
-
-## Environment Configuration
-
-### Traefik Proxy Setup
-
-- [ ] Traefik directory created
-  ```bash
-  mkdir -p /root/code/traefik-public/
-  ```
-- [ ] `docker-compose.traefik.yml` copied to server
-  ```bash
-  rsync -a docker-compose.traefik.yml root@your-server:/root/code/traefik-public/
-  ```
-- [ ] Traefik public network created
-  ```bash
-  docker network create traefik-public
-  ```
-- [ ] Traefik environment variables set
-  ```bash
-  export USERNAME=admin
-  export PASSWORD=<generate-secure-password>
-  export HASHED_PASSWORD=$(openssl passwd -apr1 $PASSWORD)
-  export DOMAIN=yourdomain.com
-  export EMAIL=admin@yourdomain.com
-  ```
-- [ ] Traefik started
-  ```bash
-  cd /root/code/traefik-public/
-  docker compose -f docker-compose.traefik.yml up -d
-  ```
-- [ ] Traefik dashboard accessible: https://traefik.yourdomain.com
-
-### Application Environment Variables
-
-- [ ] `.env` file created on server (DO NOT commit to git!)
-  ```bash
-  nano /root/code/your-app/.env
-  ```
-
-**Critical Variables** (must be changed from defaults):
-
-- [ ] `ENVIRONMENT=production`
-- [ ] `DOMAIN=yourdomain.com`
-- [ ] `SECRET_KEY=<generated-secure-value>`
-  ```bash
-  python -c "import secrets; print(secrets.token_urlsafe(32))"
-  ```
-- [ ] `FIRST_SUPERUSER=your-email@yourdomain.com`
-- [ ] `FIRST_SUPERUSER_PASSWORD=<generated-secure-value>`
-- [ ] `POSTGRES_PASSWORD=<generated-secure-value>`
-
-**SMTP Configuration** (for emails):
-
-- [ ] `SMTP_HOST=smtp.mailgun.org` (or your provider)
-- [ ] `SMTP_USER=postmaster@yourdomain.com`
-- [ ] `SMTP_PASSWORD=<your-smtp-password>`
-- [ ] `EMAILS_FROM_EMAIL=noreply@yourdomain.com`
-- [ ] `SMTP_PORT=587`
-- [ ] `SMTP_TLS=True`
-
-**Optional but Recommended**:
-
-- [ ] `SENTRY_DSN=<your-sentry-dsn>` (error tracking)
-- [ ] `STACK_NAME=your-app-production`
-- [ ] `PROJECT_NAME=Your App Name`
-
-### CORS Configuration
-
-- [ ] `BACKEND_CORS_ORIGINS` updated for production
-  ```env
-  BACKEND_CORS_ORIGINS="https://dashboard.yourdomain.com,https://yourdomain.com"
-  ```
-
----
-
-## Database Setup
-
-### Database Choice
-
-Choose one:
-
-#### Option A: Use Docker PostgreSQL (Simple)
-- [ ] Using database from `docker-compose.yml`
-- [ ] Volume configured for persistence
-- [ ] Backup strategy planned
-
-#### Option B: Managed Database (Recommended for Production)
-- [ ] Managed PostgreSQL instance created (AWS RDS, DigitalOcean, etc.)
-- [ ] Database credentials obtained
-- [ ] `.env` updated:
-  ```env
-  POSTGRES_SERVER=your-db-host.region.provider.com
-  POSTGRES_PORT=5432
-  POSTGRES_USER=your-db-user
-  POSTGRES_PASSWORD=<db-password>
-  POSTGRES_DB=your-db-name
-  ```
-- [ ] Security group/firewall allows connection from application server
-
-### Database Backups
-
-- [ ] Backup script created
-  ```bash
-  #!/bin/bash
-  docker exec postgres pg_dump -U postgres app > backup-$(date +%Y%m%d).sql
-  ```
-- [ ] Cron job scheduled for daily backups
-  ```bash
-  0 2 * * * /path/to/backup-script.sh
-  ```
-- [ ] Backup retention policy defined
-- [ ] Restore procedure tested
-
----
-
-## Application Deployment
-
-### Code Deployment
-
-- [ ] Git repository cloned to server
-  ```bash
-  cd /root/code/
-  git clone git@github.com:your-username/your-repo.git
-  cd your-repo
-  ```
-- [ ] Correct branch/tag checked out
-  ```bash
-  git checkout v1.0.0  # or main
-  ```
-
-### Build & Start
-
-- [ ] Docker images built
-  ```bash
-  docker compose -f docker-compose.yml build
-  ```
-- [ ] Application started (WITHOUT docker-compose.override.yml)
-  ```bash
-  docker compose -f docker-compose.yml up -d
-  ```
-- [ ] All containers running
-  ```bash
+  docker compose up -d --wait proxy db adminer backend mailpit
   docker compose ps
   ```
-- [ ] Database migrations applied
-  ```bash
-  docker compose exec backend alembic upgrade head
-  ```
-- [ ] First superuser created (automatic on first run)
 
-### Verify Deployment
+**Verify:**
 
-- [ ] Backend health check: https://api.yourdomain.com/api/v1/utils/health-check/
-- [ ] Frontend loads: https://dashboard.yourdomain.com
-- [ ] Can log in with superuser credentials
-- [ ] API docs accessible: https://api.yourdomain.com/docs
-- [ ] SSL certificate issued and valid
-- [ ] No console errors in browser
-- [ ] Check logs for errors:
-  ```bash
-  docker compose logs backend | grep ERROR
-  docker compose logs frontend | grep ERROR
-  ```
+- [ ] <http://localhost:8000> shows the login page, and you can log in as `FIRST_SUPERUSER`
+- [ ] <http://localhost:8000/docs> shows the API docs
+- [ ] <http://localhost:8080> (Adminer) logs in to server `db`, user `postgres`, database `app`
+- [ ] **Forgot your password?** sends an email that appears in <http://localhost:8025>
 
 ---
 
-## Post-Deployment
+## B. FastAPI Cloud
 
-### Monitoring Setup
+Follow [deployment.md](../deployment.md) for each step. The secrets and variables are described in [github-secrets-setup.md](./github-secrets-setup.md#fastapi-cloud-deployyml).
 
-- [ ] Application logs configured
-  ```bash
-  docker compose logs -f
-  ```
-- [ ] Log rotation configured
-  ```bash
-  # Add to /etc/docker/daemon.json
-  {
-    "log-driver": "json-file",
-    "log-opts": {
-      "max-size": "10m",
-      "max-file": "3"
-    }
-  }
-  ```
-- [ ] Error tracking enabled (Sentry recommended)
-- [ ] Uptime monitoring configured (UptimeRobot, Pingdom, etc.)
-- [ ] Disk space monitoring
-  ```bash
-  df -h
-  ```
+**Before you start:**
 
-### Performance Testing
+- [ ] A FastAPI Cloud account, and an application created with **Application Directory** `backend`
+- [ ] A PostgreSQL database from a provider, reachable from the internet. GitHub's runners connect to it to run the migrations.
+- [ ] Values generated for `SECRET_KEY` and `FIRST_SUPERUSER_PASSWORD` (`openssl rand -hex 32`, a different one each)
 
-- [ ] Load testing performed (optional but recommended)
-- [ ] Response times acceptable
-- [ ] Database queries optimized
-- [ ] CDN configured for static assets (optional)
+**Configure:**
 
-### Email Testing
+- [ ] Environment variables set in the FastAPI Cloud application, as listed in [deployment.md](../deployment.md)
+- [ ] GitHub secrets `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` set (`uv run fastapi cloud setup-ci --secrets-only --app-id <id>`)
+- [ ] GitHub secrets `DATABASE_URL`, `SECRET_KEY` and `FIRST_SUPERUSER_PASSWORD` set, with the same values as in FastAPI Cloud
+- [ ] GitHub variables `PROJECT_NAME` and `FIRST_SUPERUSER` set
+- [ ] `gh secret list` and `gh variable list` show all of the above
 
-- [ ] Password reset email works
-- [ ] User registration email works
-- [ ] SMTP connection verified
-  ```bash
-  docker compose exec backend python -c "from app.utils import send_email; print('Test')"
-  ```
+**Deploy:**
+
+- [ ] Push to `main`, or run **Actions → Deploy → Run workflow**
+- [ ] The run's `check-config` job did **not** report "skipping FastAPI Cloud deployment", and the `deploy` job succeeded
+
+**Verify:**
+
+- [ ] `https://<your-app>.fastapicloud.dev` shows the login page, and you can log in as `FIRST_SUPERUSER`
+- [ ] `https://<your-app>.fastapicloud.dev/docs` shows the API docs
+- [ ] If email is configured: **Forgot your password?** delivers an email to a real inbox
 
 ---
 
-## Security Hardening
+## C. Self-Hosted Server with a GitHub Actions Runner
 
-### Application Security
+This deploys the full Docker Compose stack, including Traefik with automatic HTTPS, to your own Linux server. A [self-hosted GitHub Actions runner](https://docs.github.com/en/actions/hosting-your-own-runners) on that server runs the deployment when you trigger it. The commands for each step are in [deployment-docker-compose.md](../deployment-docker-compose.md).
 
-- [ ] All `changethis` values replaced in `.env`
-- [ ] Debug mode disabled (`ENVIRONMENT=production`)
-- [ ] Secrets not committed to git
-- [ ] `.env` file permissions restricted
-  ```bash
-  chmod 600 .env
-  ```
+### 1. Before you start
 
-### Server Security
+- [ ] **A Linux server** (a cloud VM is fine) with a public IP address and SSH access. The images are built on the server, so give it room: as a starting point, 2 GB of RAM and 20 GB of disk.
+- [ ] **A domain**, e.g. `app.example.com`, with DNS **A records** pointing at the server's IP for both:
+  - [ ] `app.example.com`
+  - [ ] `adminer.app.example.com`
 
-- [ ] Fail2ban installed and configured
-  ```bash
-  apt install fail2ban
-  systemctl enable fail2ban
-  systemctl start fail2ban
-  ```
-- [ ] SSH key authentication enforced
-- [ ] Root login disabled
-  ```bash
-  # In /etc/ssh/sshd_config
-  PermitRootLogin no
-  PasswordAuthentication no
-  ```
-- [ ] Automatic security updates enabled
-  ```bash
-  apt install unattended-upgrades
-  dpkg-reconfigure -plow unattended-upgrades
-  ```
+  Check them with `dig +short app.example.com`. Wait for DNS to answer correctly before the first deploy, because Let's Encrypt can only issue certificates for names that already point at the server.
+- [ ] **Firewall** allows inbound TCP **80** and **443** (and SSH). Port 80 must stay open: Let's Encrypt uses it, and it redirects visitors to HTTPS.
+- [ ] **Docker Engine** with the Compose plugin installed on the server ([install guide](https://docs.docker.com/engine/install/)), and `docker compose version` works
+- [ ] **The repository is private,** or you fully trust everyone who can push to it. A self-hosted runner executes workflow code directly on your server.
 
-### SSL/TLS
+### 2. Install the runner
 
-- [ ] HTTPS enforced (HTTP redirects to HTTPS)
-- [ ] SSL certificate valid and auto-renewing
-- [ ] SSL Labs test passed (A+ rating)
-  - https://www.ssllabs.com/ssltest/
+Following [deployment-docker-compose.md](../deployment-docker-compose.md#install-a-self-hosted-runner):
 
-### Database Security
+- [ ] A dedicated `github` user exists and is in the `docker` group
+- [ ] The runner is registered in **Settings → Actions → Runners → New self-hosted runner** (Linux), installed in `/home/github/actions-runner`
+- [ ] The runner is installed and started as a service (`sudo ./svc.sh install github`, `sudo ./svc.sh start`), so it survives reboots
+- [ ] **Settings → Actions → Runners** shows the runner as **Idle**
 
-- [ ] Database not exposed to public internet
-- [ ] Strong database password used
-- [ ] Database backups encrypted (if applicable)
+### 3. Configure the repository
 
-### CORS & Headers
+All names and their meanings: [github-secrets-setup.md](./github-secrets-setup.md#self-hosted-deploy-docker-composeyml). Use `gh secret set NAME`, which prompts for the value, so no stray newline ends up in a secret.
 
-- [ ] CORS restricted to your domains only
-- [ ] Security headers configured:
-  - [ ] X-Content-Type-Options
-  - [ ] X-Frame-Options
-  - [ ] Content-Security-Policy
-  - [ ] Strict-Transport-Security
+- [ ] Variables: `DOMAIN` (e.g. `app.example.com`, without `https://`), `PROJECT_NAME`, `FIRST_SUPERUSER`
+- [ ] Secrets: `SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `POSTGRES_PASSWORD`, each from `openssl rand -hex 32`
+- [ ] For email: variables `SMTP_HOST` and `EMAILS_FROM_EMAIL`, plus `SMTP_USER` and the `SMTP_PASSWORD` secret if your provider requires login
+- [ ] Optional: variable `SENTRY_DSN`
+- [ ] Store `POSTGRES_PASSWORD` somewhere safe outside GitHub as well. GitHub can't show it back to you, and **changing it after the first deploy breaks the database connection** (see [Changing secrets later](#changing-secrets-later)).
 
----
+### 4. Deploy
 
-## Monitoring & Maintenance
+- [ ] **Actions → Deploy with Docker Compose → Run workflow**, with branch `main`
+- [ ] The run finished green. It builds the images, runs `prestart.sh` (migrations and first superuser), and starts the stack with `compose.yml` + `compose.deploy.yml`.
 
-### Health Checks
+The first run takes several minutes, because the images are built on the server.
 
-Set up automated checks:
+### 5. Verify
 
-- [ ] Application uptime monitoring
-- [ ] SSL certificate expiry monitoring
-- [ ] Disk space alerts
-- [ ] Memory usage alerts
-- [ ] Database connection monitoring
+From your own computer:
 
-### Backup Verification
+- [ ] `https://app.example.com` shows the login page **with a valid certificate**. The certificate is requested on the first visit and can take up to a minute.
+- [ ] `curl -I http://app.example.com` answers with a redirect (`301`, `302` or `308`) to `https://`
+- [ ] You can log in as `FIRST_SUPERUSER` with `FIRST_SUPERUSER_PASSWORD`
+- [ ] `https://app.example.com/docs` shows the API docs
+- [ ] `https://adminer.app.example.com` shows Adminer
+- [ ] If email is configured: **Forgot your password?** delivers an email to a real inbox
 
-- [ ] Database backups running automatically
-- [ ] Backup restoration tested successfully
-- [ ] Off-site backup storage configured
-- [ ] Backup retention policy implemented
+On the server:
 
-### Update Strategy
+- [ ] `docker ps` lists the `proxy`, `db`, `adminer` and `backend` containers as running, and `backend` as `healthy`
 
-- [ ] Update schedule planned (security patches)
-- [ ] Rollback procedure documented
-- [ ] Staging environment available for testing updates
+### 6. Secure it
 
-### Documentation
+- [ ] **Adminer is public** at `adminer.<DOMAIN>`, protected only by the database password. Unless you need it, don't create its DNS record, or remove its Traefik labels in your copy of `compose.deploy.yml`. You can still reach it through an SSH tunnel.
+- [ ] Only people you trust can push to the repository, and no workflow that runs on the self-hosted runner is triggered by pull requests
+- [ ] The server's firewall allows only 22, 80 and 443 inbound. PostgreSQL isn't published by `compose.deploy.yml`; keep it that way.
+- [ ] Automatic OS security updates are enabled (on Ubuntu, `unattended-upgrades`)
+- [ ] You've logged in once and confirmed `FIRST_SUPERUSER_PASSWORD` is a generated value, not anything reused
 
-- [ ] Server access credentials documented (securely!)
-- [ ] Deployment procedure documented
-- [ ] Rollback procedure documented
-- [ ] Emergency contacts listed
-- [ ] Runbook created for common issues
+### 7. Operate it
 
----
+**Container names** are `<project>-<service>-1`. `<project>` is the folder the runner checks the code out into: your repository's name in lowercase. On the server, you can use plain `docker` commands, which don't need the deployment's environment variables:
 
-## CI/CD Setup (Optional)
+```bash
+docker ps                                   # what's running
+docker logs --tail=100 <project>-backend-1  # backend logs
+docker logs <project>-proxy-1               # Traefik: routing and certificate errors
+```
 
-### GitHub Actions
+**Back up the database** regularly, and before every deployment that includes migrations. Keep copies off the server.
 
-- [ ] GitHub repository secrets configured:
-  - `DOMAIN_PRODUCTION`
-  - `SECRET_KEY`
-  - `FIRST_SUPERUSER`
-  - `FIRST_SUPERUSER_PASSWORD`
-  - `POSTGRES_PASSWORD`
-  - `LATEST_CHANGES` (optional)
-  - `SMOKESHOW_AUTH_KEY` (optional)
-- [ ] GitHub Actions runner installed on server
-  ```bash
-  # Follow: https://docs.github.com/en/actions/hosting-your-own-runners
-  ```
-- [ ] Runner service enabled
-- [ ] Test deployment workflow
-- [ ] Auto-deploy configured for main branch (optional)
+```bash
+docker exec <project>-db-1 pg_dump -U postgres -d app --clean --if-exists > backup-$(date +%F).sql
+```
 
----
+`--clean --if-exists` makes the backup replace existing tables when it's restored, so it can be restored over the live database.
 
-## Final Checks
+**Restore** a backup. This **replaces all current data** with the backup's contents, and stops at the first error:
 
-Before announcing your deployment:
+```bash
+docker exec -i <project>-db-1 psql -U postgres -d app -v ON_ERROR_STOP=1 < backup-2026-01-31.sql
+```
 
-- [ ] **Functionality**: All features work as expected
-- [ ] **Performance**: Page load times acceptable (<3 seconds)
-- [ ] **Security**: All security items above completed
-- [ ] **Monitoring**: Alerts configured and tested
-- [ ] **Backups**: Verified and tested
-- [ ] **Documentation**: Complete and accessible
-- [ ] **Team**: Everyone knows how to access and troubleshoot
-- [ ] **Users**: Communication sent about new deployment
+**Deploy an update:** merge to `main`, then run the workflow again. Migrations run automatically.
 
----
+**Roll back:** revert the change on `main` (`git revert <commit>`, via a pull request) and run the workflow again. Alembic doesn't undo migrations automatically. If the change included a migration, restore the backup you took before deploying it.
 
-## Post-Launch
+### Changing secrets later
 
-### First 24 Hours
+- `SECRET_KEY`: safe to change. Everyone is logged out.
+- `FIRST_SUPERUSER_PASSWORD`: has no effect after the first deploy. The admin account already exists, so change the password in the app instead.
+- `POSTGRES_PASSWORD`: **don't** change it, unless you also change it inside PostgreSQL. The database keeps the password it was created with, so the backend can't connect after a mismatch.
 
-- [ ] Monitor logs closely
-- [ ] Check error rates
-- [ ] Verify backups completed
-- [ ] User feedback collected
+### If something goes wrong
 
-### First Week
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| The run waits forever at "Waiting for a runner" | The runner is offline | On the server, `sudo ./svc.sh status` in `/home/github/actions-runner`, then `sudo ./svc.sh start` |
+| The run fails with `required variable ... is missing a value` | That variable or secret isn't set | Set it (step 3) and run the workflow again |
+| The browser warns about the certificate | DNS doesn't point at the server yet, or port 80/443 is blocked | Fix DNS or the firewall. `docker logs <project>-proxy-1` shows `Unable to obtain ACME certificate for domains` with the reason; Traefik serves its self-signed `TRAEFIK DEFAULT CERT` until it succeeds |
+| `404 page not found` (plain text) at your domain | Traefik has no route for that host name | Check that `DOMAIN` exactly matches the name you're visiting |
+| Login fails or pages error after you changed `POSTGRES_PASSWORD` | Password mismatch with the existing database | Restore the old value (see above) |
+| The run fails building the image | Out of memory or disk on the server | `docker system df`, free space with `docker builder prune`, or use a larger server |
 
-- [ ] Performance metrics reviewed
-- [ ] Error tracking reviewed
-- [ ] Backup verification
-- [ ] Security scan performed
-
-### Ongoing
-
-- [ ] Weekly backup checks
-- [ ] Monthly security updates
-- [ ] Quarterly performance reviews
-- [ ] Annual SSL certificate renewal (auto or manual)
-
----
-
-## Emergency Contacts
-
-Document these before deployment:
-
-- **DevOps Lead**: Name, Phone, Email
-- **Database Admin**: Name, Phone, Email
-- **Hosting Provider**: Support Phone/Email
-- **DNS Provider**: Support Phone/Email
-- **On-Call Schedule**: Who's responsible when
-
----
-
-## Rollback Procedure
-
-If something goes wrong:
-
-1. **Stop the current deployment**
-   ```bash
-   docker compose down
-   ```
-
-2. **Checkout previous working version**
-   ```bash
-   git checkout <previous-tag>
-   ```
-
-3. **Restore database backup** (if needed)
-   ```bash
-   docker exec -i postgres psql -U postgres app < backup-YYYYMMDD.sql
-   ```
-
-4. **Restart application**
-   ```bash
-   docker compose -f docker-compose.yml up -d
-   ```
-
-5. **Verify rollback successful**
-
-6. **Communicate incident to team**
-
----
-
-## Resources
-
-- [Official Deployment Guide](../deployment.md)
-- [Architecture Documentation](../ARCHITECTURE.md)
-- [Troubleshooting Guide](./troubleshooting.md)
-- [FastAPI Deployment](https://fastapi.tiangolo.com/deployment/)
-- [Docker Production Guide](https://docs.docker.com/compose/production/)
-
----
-
-**Remember**: Take your time with each step. A careful deployment prevents future emergencies! 🚀
+More errors and fixes: [troubleshooting.md](./troubleshooting.md).

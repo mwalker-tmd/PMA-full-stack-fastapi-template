@@ -3,52 +3,31 @@ name: Test Docker Compose
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
-    types:
-      - opened
-      - synchronize
+permissions:
+  contents: read
 
 jobs:
 
   test-docker-compose:
     runs-on: ubuntu-latest
-    env:
-      # Secrets (sensitive data)
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      # Variables (non-sensitive configuration)
-      PROJECT_NAME: ${{ vars.PROJECT_NAME }}
-      STACK_NAME: ${{ vars.STACK_NAME }}
-      DOMAIN: ${{ vars.DOMAIN }}
-      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
-      FRONTEND_HOST: ${{ vars.FRONTEND_HOST }}
-      BACKEND_CORS_ORIGINS: ${{ vars.BACKEND_CORS_ORIGINS }}
-      FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
-      POSTGRES_SERVER: ${{ vars.POSTGRES_SERVER }}
-      POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
-      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
-      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
-      DOCKER_IMAGE_BACKEND: ${{ vars.DOCKER_IMAGE_BACKEND }}
-      DOCKER_IMAGE_FRONTEND: ${{ vars.DOCKER_IMAGE_FRONTEND }}
-      TAG: ${{ vars.TAG }}
-      SMTP_HOST: ${{ vars.SMTP_HOST }}
-      SMTP_USER: ${{ vars.SMTP_USER }}
-      SMTP_PASSWORD: ${{ vars.SMTP_PASSWORD }}
-      EMAILS_FROM_EMAIL: ${{ vars.EMAILS_FROM_EMAIL }}
-      SMTP_TLS: ${{ vars.SMTP_TLS }}
-      SMTP_SSL: ${{ vars.SMTP_SSL }}
-      SMTP_PORT: ${{ vars.SMTP_PORT }}
-      SENTRY_DSN: ${{ vars.SENTRY_DSN }}
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # CI runs a throwaway stack, so it uses the public local defaults from
+      # .env.example and never needs repository secrets
+      - name: Create .env
+        run: cp .env.example .env
       - run: docker compose build
       - run: docker compose down -v --remove-orphans
-      - run: docker compose up -d --wait backend frontend adminer
+      - run: docker compose run --rm backend bash scripts/prestart.sh
+      - run: docker compose up -d --wait backend adminer
       - name: Test backend is up
         run: curl http://localhost:8000/api/v1/utils/health-check
       - name: Test frontend is up
-        run: curl http://localhost:5173
+        run: curl http://localhost:8000
       - run: docker compose down -v --remove-orphans

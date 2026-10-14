@@ -2,83 +2,51 @@ name: pre-commit
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-
-env:
-  # Forks and Dependabot don't have access to secrets
-  HAS_SECRETS: ${{ secrets.PRE_COMMIT != '' }}
+permissions: {}
 
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
     steps:
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
-      - uses: actions/checkout@v6
-        name: Checkout PR for own repo
-        if: env.HAS_SECRETS == 'true'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # To be able to commit it needs to fetch the head of the branch, not the
-          # merge commit
-          ref: ${{ github.head_ref }}
-          # And it needs the full history to be able to compute diffs
+          # The full history is needed to compute the diff against the base branch
           fetch-depth: 0
-          # A token other than the default GITHUB_TOKEN is needed to be able to trigger CI
-          token: ${{ secrets.PRE_COMMIT }}
-      # pre-commit lite ci needs the default checkout configs to work
-      - uses: actions/checkout@v6
-        name: Checkout PR for fork
-        if: env.HAS_SECRETS == 'false'
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-        # To be able to commit it needs the head branch of the PR, the remote one
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          bun-version: 1.3.12
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
-      - name: Install ruff
-        run: pip install ruff
+          python-version-file: .python-version
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
+          version: "latest-known"
           cache-dependency-glob: |
             requirements**.txt
             pyproject.toml
             uv.lock
-      - name: Install Dependencies
-        run: uv sync
-        working-directory: backend
-      - name: Install biome (JavaScript/TypeScript linter)
-        run: npm install --global @biomejs/biome
+      # The Generate Frontend SDK hook imports the app, which needs settings.
+      # CI uses the local development defaults from .env.example
+      - name: Create .env
+        run: cp .env.example .env
+      - name: Install backend dependencies
+        run: uv sync --all-packages
+      - name: Install frontend dependencies
+        run: bun ci
+      # Fails with a diff when hooks change files. Fix by running the hooks
+      # locally (uv run prek run --all-files) and committing the result.
       - name: Run prek - pre-commit
-        id: precommit
-        run: uvx prek run --from-ref origin/${GITHUB_BASE_REF} --to-ref HEAD --show-diff-on-failure
-        continue-on-error: true
-        working-directory: backend
-      - name: Commit and push changes
-        if: env.HAS_SECRETS == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "🎨 Auto format"
-            git push
-          fi
-      - uses: pre-commit-ci/lite-action@v1.1.0
-        if: env.HAS_SECRETS == 'false'
-        with:
-          msg: 🎨 Auto format
-      - name: Error out on pre-commit errors
-        if: steps.precommit.outcome == 'failure'
-        run: exit 1
+        run: uv run prek run --from-ref origin/${GITHUB_BASE_REF} --to-ref HEAD --show-diff-on-failure
 
   # https://github.com/marketplace/actions/alls-green#why
   pre-commit-alls-green:  # This job does nothing and is only used for the branch protection
@@ -86,12 +54,13 @@ jobs:
     needs:
       - pre-commit
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJson(github) }}
         run: echo "$GITHUB_CONTEXT"
       - name: Decide whether the needed jobs succeeded or failed
-        uses: re-actors/alls-green@release/v1
+        uses: re-actors/alls-green@b5b5b37504aa4183270bd3d855c52a67f212be35 # v1.3.0
         with:
           jobs: ${{ toJSON(needs) }}

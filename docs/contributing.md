@@ -1,551 +1,192 @@
-# Contributing Guide
+# Contributing
 
-Thank you for your interest in contributing to this Full Stack FastAPI project! This guide will help you get started.
+How to make a change to this project, from setting up your machine to getting a pull request merged. It's written for bootcamp students and interns working in their own repository created from this template, and for anyone contributing back to the template itself.
 
-## Table of Contents
+## 1. Set Up Your Development Environment
 
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Code Standards](#code-standards)
-- [Testing Requirements](#testing-requirements)
-- [Documentation](#documentation)
-- [Submitting Changes](#submitting-changes)
-- [Review Process](#review-process)
+### Install the tools
 
-## Code of Conduct
+| Tool | Why | Install |
+|---|---|---|
+| Git | Version control | <https://git-scm.com/downloads> |
+| Docker | Runs the database and the full stack | [Docker Desktop](https://www.docker.com/products/docker-desktop/) on macOS and Windows; Docker Engine + Compose plugin on Linux |
+| uv | Python and backend dependencies. Installs Python 3.14 for you. | <https://docs.astral.sh/uv/getting-started/installation/> |
+| Bun | Frontend dependencies and builds. **Required for everyone**, because the commit checks use it. | <https://bun.sh/docs/installation> |
 
-### Our Pledge
-
-We are committed to providing a welcoming and inclusive environment for all contributors, regardless of experience level, gender identity, sexual orientation, disability, appearance, race, ethnicity, age, religion, or nationality.
-
-### Expected Behavior
-
-- Be respectful and considerate
-- Welcome newcomers and help them learn
-- Focus on what is best for the community
-- Show empathy towards others
-- Accept constructive criticism gracefully
-
-### Unacceptable Behavior
-
-- Harassment, discrimination, or intimidation
-- Trolling or insulting comments
-- Publishing others' private information
-- Any conduct that would be inappropriate in a professional setting
-
-## Getting Started
-
-### Prerequisites
-
-Before contributing, make sure you have:
-
-- [ ] Read the [Getting Started](./getting-started.md) guide
-- [ ] Set up your local development environment
-- [ ] Read the [Architecture](../ARCHITECTURE.md) documentation
-- [ ] Familiarized yourself with the codebase
-
-### Finding Issues to Work On
-
-1. **Check Open Issues**: Look for issues labeled:
-   - `good first issue` - Great for newcomers
-   - `help wanted` - Need community assistance
-   - `bug` - Something isn't working
-   - `enhancement` - New feature requests
-
-2. **Ask Questions**: Comment on the issue to ask questions or clarify requirements
-
-3. **Claim the Issue**: Comment "I'd like to work on this" to avoid duplicate work
-
-### Setting Up Your Fork
+On Windows, use [WSL](https://learn.microsoft.com/windows/wsl/install). Check the installs with:
 
 ```bash
-# 1. Fork the repository on GitHub
-
-# 2. Clone your fork
-git clone https://github.com/YOUR-USERNAME/YOUR-REPO-NAME.git
-cd YOUR-REPO-NAME
-
-# 3. Add upstream remote
-git remote add upstream https://github.com/ORIGINAL-OWNER/ORIGINAL-REPO.git
-
-# 4. Verify remotes
-git remote -v
-
-# 5. Create a branch for your work
-git checkout -b feature/your-feature-name
+git --version && docker compose version && uv --version && bun --version
 ```
 
-## Development Workflow
-
-### 1. Sync with Upstream
-
-Always start with the latest code:
+### Get the code and start the app
 
 ```bash
-# Fetch latest changes
-git fetch upstream
+git clone https://github.com/<owner>/<repo>.git
+cd <repo>
 
-# Merge into your branch
-git merge upstream/main
-
-# Or rebase (preferred)
-git rebase upstream/main
+cp .env.example .env
+cp frontend/.env.example frontend/.env
 ```
 
-### 2. Make Your Changes
-
-**Branch Naming Convention**:
-- Features: `feature/description`
-- Bug fixes: `fix/description`
-- Documentation: `docs/description`
-- Refactoring: `refactor/description`
-
-**Examples**:
-- `feature/add-user-profile`
-- `fix/login-validation-error`
-- `docs/update-deployment-guide`
-
-### 3. Test Your Changes
-
-**Before committing**, ensure:
+Open `.env` and replace the three `changethis` values (`SECRET_KEY`, `FIRST_SUPERUSER_PASSWORD`, `POSTGRES_PASSWORD`) with output from:
 
 ```bash
-# Backend tests pass
-docker compose exec backend bash /app/scripts/test.sh
-
-# Frontend tests pass (if applicable)
-cd frontend && npm run test
-
-# E2E tests pass (if applicable)
-docker compose run --rm playwright npx playwright test
-
-# Linting passes
-cd backend && uv run prek run --all-files
-cd frontend && npm run lint
+openssl rand -hex 32
 ```
 
-### 4. Commit Your Changes
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-**Types**:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, no logic change)
-- `refactor`: Code refactoring (no feature change)
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks
-
-**Examples**:
+Then start the stack:
 
 ```bash
-git commit -m "feat(auth): add password reset functionality"
-git commit -m "fix(api): handle null values in user endpoint"
-git commit -m "docs(readme): update installation instructions"
+docker compose run --rm backend bash scripts/prestart.sh     # first run takes a few minutes
+docker compose up -d --wait proxy db adminer backend mailpit
 ```
 
-**Good Commit Message**:
-```
-feat(items): add bulk delete functionality
+Open <http://localhost:8000> and log in as `admin@example.com` (or your `FIRST_SUPERUSER`) with your `FIRST_SUPERUSER_PASSWORD`.
 
-Add ability to delete multiple items at once through new
-/api/v1/items/bulk-delete endpoint. Includes:
-- New API endpoint
-- Frontend UI for multi-select
-- Tests for bulk operations
-
-Closes #123
-```
-
-### 5. Push Your Changes
+### Install the development tools
 
 ```bash
-git push origin feature/your-feature-name
+uv sync                    # Python dependencies (one virtual environment, .venv/, at the root)
+bun install                # frontend and email-template dependencies
+uv run prek install -f     # run the code checks automatically before every commit
 ```
 
-## Code Standards
+Point your editor's Python interpreter at `.venv/bin/python`. VS Code suggests the recommended extensions when you open the folder.
 
-### Backend (Python/FastAPI)
+You now have everything needed to change, test and commit code. For explanations of each step, see [getting-started.md](./getting-started.md); if something fails, see [troubleshooting.md](./troubleshooting.md).
 
-**Style Guide**: Follow [PEP 8](https://pep8.org/)
+## 2. Pick Up Work
 
-**Tools**:
-- Formatting: `ruff format`
-- Linting: `ruff check`
-- Type checking: Use Python type hints
+* **Work from an issue.** Every change starts from a GitHub issue that says what and why. If there isn't one, open it first. For anything bigger than a small fix, agree on the approach in the issue before writing code.
+* **Keep changes small.** One issue, one focused pull request. Large work is easier to review, and to undo, as a series of small PRs.
+* **New dependencies** (`uv add`, `bun add`) need a reason in the issue. Every dependency is code you're trusting, and Dependabot will keep proposing updates for it.
 
-**Example**:
+## 3. Create a Branch
 
-```python
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
-
-router = APIRouter()
-
-
-@router.get("/users/{user_id}")
-def get_user(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """
-    Get user by ID.
-
-    Args:
-        user_id: The user's ID
-        db: Database session
-        current_user: Authenticated user
-
-    Returns:
-        User object
-
-    Raises:
-        HTTPException: If user not found
-    """
-    user = db.get(User, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
-```
-
-**Best Practices**:
-- Use type hints for all function parameters and returns
-- Add docstrings for public functions
-- Keep functions small and focused (< 50 lines)
-- Use meaningful variable names
-- Handle errors gracefully
-- Write tests for new functionality
-
-### Frontend (TypeScript/React)
-
-**Style Guide**: Follow [Airbnb React/JSX Style Guide](https://github.com/airbnb/javascript/tree/master/react)
-
-**Tools**:
-- Formatting: Prettier (via `npm run format`)
-- Linting: ESLint (via `npm run lint`)
-- Type checking: TypeScript
-
-**Example**:
-
-```typescript
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { UsersService } from '@/client'
-
-interface UserListProps {
-  limit?: number
-}
-
-export function UserList({ limit = 10 }: UserListProps) {
-  const [page, setPage] = useState(1)
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['users', page],
-    queryFn: () => UsersService.readUsers({ skip: (page - 1) * limit, limit }),
-  })
-
-  if (isLoading) return <div>Loading...</div>
-  if (error) return <div>Error: {error.message}</div>
-
-  return (
-    <div>
-      {data?.data.map((user) => (
-        <div key={user.id}>{user.email}</div>
-      ))}
-      <Button onClick={() => setPage(page + 1)}>Next</Button>
-    </div>
-  )
-}
-```
-
-**Best Practices**:
-- Use TypeScript for all new files
-- Prefer functional components with hooks
-- Extract reusable logic into custom hooks
-- Keep components small (< 200 lines)
-- Use proper prop types
-- Accessibility: Add ARIA labels where needed
-
-### Database Migrations
-
-When changing models:
+Branch from an up-to-date `main`:
 
 ```bash
-# 1. Modify models in backend/app/models.py
-
-# 2. Generate migration
-docker compose exec backend alembic revision --autogenerate -m "Add user profile fields"
-
-# 3. Review the generated migration file
-
-# 4. Test migration
-docker compose exec backend alembic upgrade head
-
-# 5. Test rollback
-docker compose exec backend alembic downgrade -1
-docker compose exec backend alembic upgrade head
-
-# 6. Commit migration file
-git add backend/app/alembic/versions/*.py
+git switch main
+git pull
+git switch -c chore/<short-name>
 ```
 
-## Testing Requirements
+Name branches `<type>/<short-name>`, with a type matching the issue:
 
-### Backend Tests
+| Prefix | For |
+|---|---|
+| `chore/` | Maintenance: dependencies, tooling, docs, cleanup. This repository's tickets use it most. |
+| `feat/` | New functionality |
+| `fix/` | Bug fixes |
 
-All new backend features must include tests:
+Use lowercase words joined by hyphens, for example `chore/env-example-0.12` or `fix/reset-link-host`.
 
-```python
-# tests/api/routes/test_users.py
-from fastapi.testclient import TestClient
-from sqlmodel import Session
+## 4. Make Your Change
 
-def test_create_user(client: TestClient, db: Session):
-    """Test creating a new user."""
-    response = client.post(
-        "/api/v1/users/",
-        json={
-            "email": "test@example.com",
-            "password": "securepassword123",
-            "full_name": "Test User",
-        },
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data["email"] == "test@example.com"
-    assert "id" in data
-```
-
-**Coverage Requirements**:
-- New code: 80%+ coverage
-- Critical paths (auth, payments): 95%+ coverage
-
-### Frontend Tests
-
-Test user-facing functionality:
-
-```typescript
-// tests/e2e/login.spec.ts
-import { test, expect } from '@playwright/test'
-
-test('user can log in', async ({ page }) => {
-  await page.goto('http://localhost:5173')
-  await page.click('text=Log In')
-
-  await page.fill('input[name="email"]', 'admin@example.com')
-  await page.fill('input[name="password"]', 'changethis')
-  await page.click('button[type="submit"]')
-
-  await expect(page).toHaveURL('http://localhost:5173/dashboard')
-  await expect(page.locator('text=Welcome')).toBeVisible()
-})
-```
-
-### Running Tests Locally
+Run the stack in watch mode so your changes reach the running app:
 
 ```bash
-# Backend unit tests
-docker compose exec backend pytest tests/
-
-# Backend tests with coverage
-docker compose exec backend bash /app/scripts/test.sh
-
-# Frontend E2E tests
-docker compose run --rm playwright npx playwright test
-
-# Frontend unit tests (if added)
-cd frontend && npm run test
+docker compose watch
 ```
 
-## Documentation
+For the fastest feedback, you can instead run the backend and frontend dev servers directly on your machine. See [development.md](../development.md#local-development).
 
-### When to Update Documentation
+Depending on what you change, there may be a follow-up step:
 
-Update docs when you:
-- Add a new feature
-- Change existing behavior
-- Add new environment variables
-- Modify API endpoints
-- Change deployment process
+| If you change... | Also do this |
+|---|---|
+| Database models (`backend/app/models.py`) | Create a migration and commit it (see [Database migrations](#database-migrations)) |
+| API routes or their models | Regenerate the frontend client. The commit hook does it for you, or run `bash scripts/generate-client.sh`. |
+| Email templates (`packages/react-email/`) | Run `bun run email:export` and commit the regenerated `backend/app/email-templates/*.html` |
+| A setting in `backend/app/core/config.py` | Add it to `.env.example` with a safe default and a comment |
+| Something a student or user would notice | Update the docs in the same PR |
 
-### Documentation Files
+### Database migrations
 
-| File | Purpose |
-|------|---------|
-| `README.md` | Project overview, quick start |
-| `docs/getting-started.md` | Detailed setup guide |
-| `docs/deployment-checklist.md` | Production deployment |
-| `docs/troubleshooting.md` | Common issues |
-| `ARCHITECTURE.md` | System design |
-| `backend/README.md` | Backend-specific docs |
-| `frontend/README.md` | Frontend-specific docs |
+The schema is changed only through [Alembic](https://alembic.sqlalchemy.org) migrations. After editing the models, with the stack running:
 
-### API Documentation
-
-FastAPI auto-generates API docs, but add descriptions:
-
-```python
-@router.post(
-    "/users/",
-    response_model=UserPublic,
-    summary="Create a new user",
-    description="Create a new user with the provided information. "
-                "Email must be unique across the system.",
-    responses={
-        200: {"description": "User created successfully"},
-        400: {"description": "Invalid input or email already exists"},
-    },
-)
-def create_user(user_in: UserCreate, db: Session = Depends(get_db)):
-    """Create new user."""
-    ...
+```bash
+cd backend
+uv run alembic revision --autogenerate -m "Add last_name to User"
 ```
 
-## Submitting Changes
+Review the generated file in `backend/app/alembic/versions/`, since autogenerate can miss or misread changes, then apply it:
 
-### Creating a Pull Request
-
-1. **Push to Your Fork**:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-2. **Open PR on GitHub**:
-   - Go to the original repository
-   - Click "New Pull Request"
-   - Select your fork and branch
-   - Fill in the PR template
-
-### PR Template
-
-```markdown
-## Description
-Brief description of what this PR does.
-
-## Type of Change
-- [ ] Bug fix (non-breaking change fixing an issue)
-- [ ] New feature (non-breaking change adding functionality)
-- [ ] Breaking change (fix or feature causing existing functionality to change)
-- [ ] Documentation update
-
-## Related Issues
-Closes #123
-
-## Changes Made
-- Added X feature
-- Fixed Y bug
-- Updated Z documentation
-
-## Testing Done
-- [ ] Added unit tests
-- [ ] Added integration tests
-- [ ] Manual testing completed
-- [ ] All tests pass locally
-
-## Screenshots (if applicable)
-[Add screenshots for UI changes]
-
-## Checklist
-- [ ] Code follows project style guidelines
-- [ ] Self-review completed
-- [ ] Comments added for complex code
-- [ ] Documentation updated
-- [ ] No new warnings generated
-- [ ] Tests added/updated
-- [ ] All tests pass
+```bash
+uv run alembic upgrade head
 ```
 
-### PR Best Practices
+Commit the migration file together with the model change.
 
-- **Keep PRs Small**: < 400 lines changed
-- **Single Purpose**: One feature/fix per PR
-- **Clear Description**: Explain what and why
-- **Link Issues**: Use "Closes #123"
-- **Add Screenshots**: For UI changes
-- **Request Review**: Tag relevant reviewers
+## 5. Test Your Change
 
-## Review Process
+| What | Command | Notes |
+|---|---|---|
+| Code checks | `uv run prek run --all-files` | Lint, format and type checks for backend and frontend. Fix what it reports, then commit any files it reformatted. |
+| Backend tests | `cd backend && uv run bash scripts/test.sh` | Needs `db` and `mailpit` running. CI requires at least **90% coverage**. **Deletes all users and items** in your local database (see below). |
+| End-to-end tests | `docker compose run --rm playwright bunx playwright test` | Needs the stack running. Add tests in `frontend/tests/` for new UI behavior. |
+| Everything CI runs | `bash scripts/test-ci-docker.sh --playwright` | Runs CI's checks on a clean copy of your last commit. Stop your local stack first. |
 
-### What Reviewers Look For
+Add or update tests with every behavior change. Backend tests live in `backend/tests/` and run against a real database.
 
-1. **Code Quality**:
-   - Follows style guidelines
-   - Well-structured and readable
-   - No unnecessary complexity
+> **The backend tests wipe your local data.** They use the same `app` database as your running stack, and when they finish, they delete **every user and item**, including the admin account. Afterwards, recreate the admin before using the app or running the end-to-end tests:
+>
+> ```bash
+> docker compose run --rm backend bash scripts/prestart.sh
+> ```
+>
+> To test without touching your local data, use `bash scripts/test-ci-docker.sh`, which runs everything on a separate, temporary copy.
 
-2. **Functionality**:
-   - Works as described
-   - Handles edge cases
-   - No breaking changes (unless intended)
+## 6. Commit
 
-3. **Tests**:
-   - Adequate test coverage
-   - Tests are meaningful
-   - All tests pass
+Write commit messages as `<type>: <what changed, in the imperative>`, using the same types as branches plus `docs`:
 
-4. **Documentation**:
-   - Code is documented
-   - User-facing docs updated
-   - API docs accurate
+```text
+fix: send the password-reset link to the frontend host
+docs: add the self-hosted deployment checklist
+```
 
-### Responding to Feedback
+Add a body when the *why* isn't obvious from the change.
 
-- Be open to suggestions
-- Ask questions if unclear
-- Make requested changes
-- Push updates to same branch
-- Re-request review when ready
+The commit hook runs the checks on the files you changed. **If a check modifies files, the commit stops.** Review the changes, `git add` them, and commit again. Don't bypass the hook with `--no-verify`: CI runs the same checks and will fail.
 
-### After Approval
+## 7. Open a Pull Request
 
-1. **Rebase if Needed**:
-   ```bash
-   git fetch upstream
-   git rebase upstream/main
-   git push --force-with-lease origin feature/your-feature
-   ```
+```bash
+git push -u origin <branch>
+```
 
-2. **Merge**: Maintainer will merge your PR
+Then open a pull request into `main`. Its description should say:
 
-3. **Clean Up**:
-   ```bash
-   git checkout main
-   git pull upstream main
-   git branch -d feature/your-feature
-   ```
+* **what** changed and **why**, linking the issue (`Closes #123` closes it automatically when the PR is merged into `main`);
+* **how you tested** it;
+* anything the reviewer should look at closely, or decisions you made along the way.
 
-## Recognition
+CI runs automatically on every PR (see [ci-cd.md](./ci-cd.md)). It needs no setup or secrets. A PR is ready for review when CI is green.
 
-Contributors will be:
-- Listed in `CONTRIBUTORS.md`
-- Mentioned in release notes
-- Invited to team discussions (for regular contributors)
+## 8. Review and Merge
 
-## Questions?
+* **Reviewers look for:** a change that does what the issue asked and nothing else, tests that cover it, readable code that matches the surrounding style, updated docs, and no secrets or credentials in the diff.
+* **Responding to feedback:** push follow-up commits to the same branch. Reply to each comment, or resolve it, so the reviewer can see what changed.
+* **Merging:** once approved and green, merge with a merge commit. Then delete the branch and update your local `main`.
 
-- **General Questions**: Open a GitHub Discussion
-- **Bug Reports**: Open a GitHub Issue
-- **Security Issues**: Email security@yourdomain.com (private)
+## Code Style
 
-## License
+Formatting and most style rules are enforced automatically, so there's little to memorize:
 
-By contributing, you agree that your contributions will be licensed under the same license as the project (MIT License).
+* **Backend:** [Ruff](https://docs.astral.sh/ruff/) for lint and format; [mypy](https://mypy-lang.org) and [ty](https://docs.astral.sh/ty/) for types. Use type hints everywhere, and SQLModel models for database tables and API schemas.
+* **Frontend:** [Biome](https://biomejs.dev) for lint and format; TypeScript in strict mode. Use the generated client (`@/client`) for API calls, never hand-written `fetch` calls, and the shadcn/ui components in `frontend/src/components/ui/`.
+* **Everywhere:** match the surrounding code. Don't commit commented-out code or stray debug output.
 
----
+## Using AI Tools
 
-Thank you for contributing! 🎉
+AI coding assistants are welcome, and this repository helps them: `uv sync` links up-to-date FastAPI and SQLModel guidance for assistants into `.claude/skills/` and `.agents/skills/`. You're still the author of what you submit:
 
-Your efforts help make this project better for everyone.
+* **Read and understand every line** before you commit it. You need to be able to explain it in review.
+* **Run it and test it.** Generated code that looks right is often subtly wrong.
+* **Keep the PR yours:** the description, review replies and decisions should reflect your own judgment.
+
+## Where Things Are
+
+[ARCHITECTURE.md](../ARCHITECTURE.md) explains how the parts fit together and where they live. For the backend and frontend specifics, see [backend/README.md](../backend/README.md) and [frontend/README.md](../frontend/README.md).

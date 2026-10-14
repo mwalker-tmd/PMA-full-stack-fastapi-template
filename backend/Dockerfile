@@ -1,16 +1,28 @@
-FROM python:3.10
+FROM oven/bun:1 AS frontend-build
+
+WORKDIR /app
+
+COPY package.json bun.lock /app/
+COPY frontend/package.json /app/frontend/
+
+WORKDIR /app/frontend
+
+RUN bun install
+
+COPY ./frontend /app/frontend
+
+ARG VITE_API_URL=
+
+RUN bun run build
+
+
+FROM python:3.14
 
 ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app/
-
 # Install uv
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
-COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /uvx /bin/
-
-# Place executables in the environment at the front of the path
-# Ref: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
-ENV PATH="/app/.venv/bin:$PATH"
+COPY --from=ghcr.io/astral-sh/uv:0.9.26 /uv /uvx /bin/
 
 # Compile bytecode
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
@@ -20,25 +32,34 @@ ENV UV_COMPILE_BYTECODE=1
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#caching
 ENV UV_LINK_MODE=copy
 
+WORKDIR /app/
+
+# Place executables in the environment at the front of the path
+# Ref: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Install dependencies
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project
+    uv sync --frozen --no-install-workspace --package app
 
-ENV PYTHONPATH=/app
+COPY ./backend/scripts /app/backend/scripts
 
-COPY ./scripts /app/scripts
+COPY ./backend/pyproject.toml ./backend/alembic.ini /app/backend/
 
-COPY ./pyproject.toml ./uv.lock ./alembic.ini /app/
+COPY ./backend/app /app/backend/app
 
-COPY ./app /app/app
-COPY ./tests /app/tests
+COPY --from=frontend-build /app/backend/app/frontend /app/backend/app/frontend
 
 # Sync the project
 # Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --package app
 
-CMD ["fastapi", "run", "--workers", "4", "app/main.py"]
+WORKDIR /app/backend/
+
+CMD ["fastapi", "run", "--workers", "4"]
