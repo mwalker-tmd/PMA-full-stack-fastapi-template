@@ -202,6 +202,8 @@ From here:
 
 ## Common First-Run Problems
 
+For anything not listed here, see [troubleshooting.md](./troubleshooting.md).
+
 **`required variable SECRET_KEY is missing a value`** (or `POSTGRES_PASSWORD`, `PROJECT_NAME`...)
 You skipped step 2, or ran the command outside the project root. `.env` must exist next to `compose.yml`.
 
