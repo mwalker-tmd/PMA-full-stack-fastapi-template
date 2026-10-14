@@ -49,3 +49,19 @@ def test_cors_preflight_allows_vite_dev_server_in_development(
     )
     assert r.status_code == 200
     assert r.headers["access-control-allow-origin"] == VITE_DEV_SERVER
+
+
+def test_cors_preflight_rejects_other_local_origin_in_development(
+    client: TestClient,
+) -> None:
+    other_origin = "http://localhost:5174"
+    assert other_origin not in settings.all_cors_origins
+    r = client.options(
+        f"{settings.API_V1_STR}/login/access-token",
+        headers={
+            "Origin": other_origin,
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert r.status_code == 400
+    assert "access-control-allow-origin" not in r.headers
