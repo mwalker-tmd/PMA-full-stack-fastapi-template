@@ -3,7 +3,7 @@ name: Playwright Tests
 on:
   push:
     branches:
-    - master
+    - main
   pull_request:
   workflow_dispatch:
     inputs:
@@ -36,6 +36,7 @@ jobs:
             - backend/**
             - frontend/**
             - .env.example
+            - scripts/ci-env.sh
             - compose*.yml
             - .github/workflows/playwright.yml
 
@@ -69,9 +70,15 @@ jobs:
       uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
         version: "latest-known"
-    # CI uses the local development defaults from .env.example
+    # Repository secrets and variables override the .env.example defaults when set
     - name: Create .env
-      run: cp .env.example .env
+      run: bash scripts/ci-env.sh
+      env:
+        PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+        FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
+        FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
+        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
     - run: uv sync
       working-directory: backend
     - run: bun ci
