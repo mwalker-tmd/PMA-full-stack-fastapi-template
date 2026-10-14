@@ -316,6 +316,20 @@ docker compose run --rm backend bash scripts/prestart.sh
 docker compose up -d --wait proxy db adminer backend mailpit
 ```
 
+### All my users and items are gone, and I can't log in
+
+You may also see the end-to-end tests fail at `auth.setup.ts › authenticate` with `page.waitForURL: Test timeout`.
+
+**Cause:** You ran the backend tests (`uv run bash scripts/test.sh`, or `scripts/tests-start.sh` in the container). They use the same database as your local stack, and when they finish they delete every user and item, including the admin.
+
+**Fix:** Recreate the admin account. The deleted data itself can't be recovered:
+
+```bash
+docker compose run --rm backend bash scripts/prestart.sh
+```
+
+To run the tests without touching your local data, use `bash scripts/test-ci-docker.sh`, which runs them on a separate, temporary copy.
+
 ### `{"detail":"Could not validate credentials"}` (403)
 
 **Cause:** Your login token isn't valid anymore. Either `SECRET_KEY` changed since you logged in (tokens are signed with it), or the token expired. Tokens last 8 days by default (`ACCESS_TOKEN_EXPIRE_MINUTES`).
