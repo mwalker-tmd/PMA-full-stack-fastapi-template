@@ -3,7 +3,7 @@ name: Deploy
 on:
   push:
     branches:
-      - master
+      - main
     paths-ignore:
       - release-notes.md
   workflow_dispatch:
@@ -12,9 +12,31 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  check-config:
     # Do not deploy the template repository, only projects created from it
     if: github.repository != 'fastapi/full-stack-fastapi-template'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      # Skip the deploy instead of failing when FastAPI Cloud has not been set up,
+      # e.g. in projects that deploy with deploy-docker-compose.yml instead
+      - name: Check for FastAPI Cloud secrets
+        id: check
+        env:
+          FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
+          FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
+        run: |
+          if [ -n "$FASTAPI_CLOUD_TOKEN" ] && [ -n "$FASTAPI_CLOUD_APP_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::FASTAPI_CLOUD_TOKEN or FASTAPI_CLOUD_APP_ID is not set, skipping FastAPI Cloud deployment. See deployment.md."
+          fi
+  deploy:
+    needs: check-config
+    if: needs.check-config.outputs.configured == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
