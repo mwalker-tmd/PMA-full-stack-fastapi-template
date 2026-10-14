@@ -64,6 +64,9 @@ services:
       - ./backend/htmlcov:/app/backend/htmlcov
     environment:
       FASTAPI_ENV: "development"
+      # The app is served by this container on port 8000, so links in emails
+      # (e.g. password reset) must point here, not at the Vite dev server
+      FRONTEND_HOST: ${FRONTEND_HOST:-http://localhost:8000}
       SMTP_HOST: "mailpit"
       SMTP_PORT: "1025"
       SMTP_TLS: "false"

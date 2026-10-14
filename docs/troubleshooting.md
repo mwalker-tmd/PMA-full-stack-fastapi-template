@@ -420,16 +420,11 @@ cp frontend/.env.example frontend/.env    # contains VITE_API_URL=http://localho
 
 ### Browser console: `blocked by CORS policy`
 
-**Cause:** The backend only accepts browser requests from `FRONTEND_HOST`, which defaults to `http://localhost:5173`. If the Vite dev server runs on another address, for example `http://localhost:5174` because 5173 was busy, the browser blocks the requests.
+**Cause:** In development, the backend accepts browser requests from `FRONTEND_HOST` and from the Vite dev server's usual address, `http://localhost:5173`. If the dev server runs anywhere else, for example `http://localhost:5174` because 5173 was busy, the browser blocks the requests.
 
-**Fix:** The simplest fix is to free port 5173 and restart `bun run dev`, so the dev server gets its usual address.
+**Fix:** Free port 5173 and restart `bun run dev`, so the dev server gets its usual address. Or set `FRONTEND_HOST` in `.env` to the address the dev server shows and restart the backend: `docker compose up -d --wait backend` for Docker, or restart `uv run fastapi dev`.
 
-To allow a different address instead, it depends on where the backend runs:
-
-* **Backend on your machine** (`uv run fastapi dev`): set `FRONTEND_HOST` in `.env` to the address the dev server shows, then restart the backend.
-* **Backend in Docker Compose:** setting `FRONTEND_HOST` in `.env` has no effect, because Compose doesn't pass it to the container. Free port 5173 instead.
-
-`FRONTEND_HOST` is also used for links in emails.
+`FRONTEND_HOST` is also the base of links in emails, such as password reset. Remove it again when you're done, so those links point back at the app.
 
 ### Type errors after changing the backend API
 

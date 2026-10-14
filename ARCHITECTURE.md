@@ -76,7 +76,7 @@ flowchart TD
 
 ### In local development with the Vite server
 
-For fast frontend work, you can run the Vite dev server on your machine (`bun run dev`, port 5173) instead of using the built frontend. The browser then loads the app from Vite and calls the API on `:8000` directly. That's a cross-origin request, so the backend allows it with CORS for exactly one origin, `FRONTEND_HOST` (`http://localhost:5173` by default).
+For fast frontend work, you can run the Vite dev server on your machine (`bun run dev`, port 5173) instead of using the built frontend. The browser then loads the app from Vite and calls the API on `:8000` directly. That's a cross-origin request, which the backend allows with CORS. Allowed origins are `FRONTEND_HOST` (the base of links in emails: `http://localhost:5173` when the backend runs on your machine, `http://localhost:8000` for the Docker Compose backend, `https://<DOMAIN>` in a deployment) plus, only when `FASTAPI_ENV=development`, the Vite dev server at `http://localhost:5173`. So the dev server works with either backend, and deployments allow only their own domain.
 
 ```mermaid
 flowchart LR
