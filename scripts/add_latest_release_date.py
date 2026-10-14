@@ -2,7 +2,7 @@
 
 import re
 import sys
-from datetime import date
+from datetime import UTC, datetime
 
 RELEASE_NOTES_FILE = "release-notes.md"
 RELEASE_HEADER_PATTERN = re.compile(r"^## (\d+\.\d+\.\d+)\s*(\(.*\))?\s*$")
@@ -24,7 +24,7 @@ def main() -> None:
             print(f"Latest release {version} already has a date: {date_part}")
             sys.exit(0)
 
-        today = date.today().isoformat()
+        today = datetime.now(tz=UTC).date().isoformat()
         lines[i] = f"## {version} ({today})\n"
         print(f"Added date: {version} ({today})")
 
