@@ -18,15 +18,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Repository secrets and variables override the .env.example defaults when set
+      # CI runs a throwaway stack, so it uses the public local defaults from
+      # .env.example and never needs repository secrets
       - name: Create .env
-        run: bash scripts/ci-env.sh
-        env:
-          PROJECT_NAME: ${{ vars.PROJECT_NAME }}
-          FIRST_SUPERUSER: ${{ vars.FIRST_SUPERUSER }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          FIRST_SUPERUSER_PASSWORD: ${{ secrets.FIRST_SUPERUSER_PASSWORD }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: cp .env.example .env
       - run: docker compose build
       - run: docker compose down -v --remove-orphans
       - run: docker compose run --rm backend bash scripts/prestart.sh
