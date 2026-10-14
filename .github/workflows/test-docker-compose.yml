@@ -3,7 +3,7 @@ name: Test Docker Compose
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 permissions:
   contents: read
@@ -18,7 +18,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # CI uses the local development defaults from .env.example
+      # CI runs a throwaway stack, so it uses the public local defaults from
+      # .env.example and never needs repository secrets
       - name: Create .env
         run: cp .env.example .env
       - run: docker compose build

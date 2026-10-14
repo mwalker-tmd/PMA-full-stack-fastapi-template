@@ -3,7 +3,7 @@ name: Test Backend
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 permissions:
   contents: read
@@ -25,7 +25,8 @@ jobs:
         uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "latest-known"
-      # CI uses the local development defaults from .env.example
+      # CI runs a throwaway stack, so it uses the public local defaults from
+      # .env.example and never needs repository secrets
       - name: Create .env
         run: cp .env.example .env
       - run: docker compose down -v --remove-orphans
