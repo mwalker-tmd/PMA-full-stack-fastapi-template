@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     FRONTEND_HOST: str = "http://localhost:5173"
     FASTAPI_ENV: Literal["development"] | None = None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def all_cors_origins(self) -> list[str]:
+        origins = [self.FRONTEND_HOST]
+        # In development, also allow the Vite dev server, whichever app address
+        # FRONTEND_HOST points to (e.g. the Docker backend serves it on :8000)
+        vite_dev_server = "http://localhost:5173"
+        if self.FASTAPI_ENV == "development" and vite_dev_server not in origins:
+            origins.append(vite_dev_server)
+        return origins
+
     PROJECT_NAME: str
     SENTRY_DSN: HttpUrl | None = None
     DATABASE_URL: PostgresDsn
